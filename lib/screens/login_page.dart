@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'home_page.dart';
+import 'regis_page.dart'; // Import your registration page
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -46,7 +48,7 @@ class _LoginPageState extends State<LoginPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        "Welcome back",
+                        "Selamat Datang",
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -118,7 +120,7 @@ class _LoginPageState extends State<LoginPage> {
                         // Forgot password action
                       },
                       child: const Text(
-                        "Forgot password?",
+                        "Lupa password?",
                         style: TextStyle(color: Colors.grey),
                       ),
                     ),
@@ -136,11 +138,11 @@ class _LoginPageState extends State<LoginPage> {
                         borderRadius: BorderRadius.circular(25),
                       ),
                     ),
-                    child: const Text("Sign In"),
+                    child: const Text("Masuk"),
                   ),
                   const SizedBox(height: 20),
 
-                  const Text("OR LOG IN WITH"),
+                  const Text("Atau Masuk Dengan"),
                   const SizedBox(height: 16),
 
                   // Social Icons
@@ -157,19 +159,29 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 40),
 
                   // Sign up
-                  RichText(
-                    text: TextSpan(
-                      text: "Don’t have an account? ",
-                      style: const TextStyle(color: Colors.black),
-                      children: [
-                        TextSpan(
-                          text: "Sign up",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF052659),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RegisPage(),
+                        ), // Adjust page name
+                      );
+                    },
+                    child: RichText(
+                      text: TextSpan(
+                        text: "Belum memiliki akun? ",
+                        style: const TextStyle(color: Colors.black),
+                        children: [
+                          TextSpan(
+                            text: "Daftar",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF052659),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ],

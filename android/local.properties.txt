@@ -1,0 +1,4 @@
+sdk.dir=C:\\Users\\USER\\AppData\\Local\\Android\\Sdk
+ndk.dir=C:\\Users\\USER\\AppData\\Local\\Android\\Sdk\\ndk\\27.0.12077973
+
+

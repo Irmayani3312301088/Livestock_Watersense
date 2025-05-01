@@ -1,6 +1,13 @@
+import 'package:Livestock_Watersense/screens/splash_screen.dart';
 import 'package:flutter/material.dart';
-import 'screens/login_page.dart';
+import 'controllers/user_controller.dart';
+import 'screens/user_management/user_list_page.dart';
 import 'screens/splash_screen.dart';
+import 'screens/landing_page.dart';
+import 'screens/regis_page.dart';
+import 'screens/login_page.dart';
+import 'screens/home_page.dart';
+import 'screens/riwayat_page.dart';
 
 void main() {
   runApp(const MyApp());
