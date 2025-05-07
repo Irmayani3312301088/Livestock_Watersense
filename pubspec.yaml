@@ -67,6 +67,7 @@ flutter:
     - assets/facebook.png
     - assets/wave.png
     - assets/profile.png
+    - assets/pompa.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

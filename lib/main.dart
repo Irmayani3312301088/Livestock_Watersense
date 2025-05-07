@@ -1,4 +1,7 @@
+import 'package:Livestock_Watersense/screens/edit_profile.dart';
+import 'package:Livestock_Watersense/screens/pompa_manual.dart';
 import 'package:Livestock_Watersense/screens/splash_screen.dart';
+import 'package:Livestock_Watersense/screens/user_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'controllers/user_controller.dart';
 import 'screens/user_management/user_list_page.dart';
@@ -39,7 +42,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: SplashScreen(),
+      home: EditProfilePage(),
     );
   }
 }
