@@ -1,16 +1,7 @@
-import 'package:Livestock_Watersense/screens/edit_profile.dart';
-import 'package:Livestock_Watersense/screens/pompa_manual.dart';
 import 'package:Livestock_Watersense/screens/splash_screen.dart';
 import 'package:Livestock_Watersense/screens/user_dashboard.dart';
 import 'package:flutter/material.dart';
-import 'controllers/user_controller.dart';
-import 'screens/user_management/user_list_page.dart';
-import 'screens/splash_screen.dart';
-import 'screens/landing_page.dart';
-import 'screens/regis_page.dart';
-import 'screens/login_page.dart';
 import 'screens/home_page.dart';
-import 'screens/riwayat_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -42,7 +33,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: EditProfilePage(),
+      home: SplashScreen(),
     );
   }
 }
@@ -94,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
         // change color while the other colors stay the same.
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
+        // the App.build method, and use it to set title.
         title: Text(widget.title),
       ),
       body: Center(

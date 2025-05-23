@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'home_page.dart';
-import 'regis_page.dart'; // Import your registration page
+import 'regis_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,21 +14,78 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
-  void _login() {
+  Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      if (_emailController.text == "admin" &&
-          _passwordController.text == "123456") {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Login Berhasil')));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email atau Password salah')),
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // URL to login endpoint using HTTPS
+        final Uri url = Uri.parse('https://10.0.2.2:5000/login');
+
+        // Prepare login data
+        final Map<String, String> data = {
+          'username': _usernameController.text,
+          'password': _passwordController.text,
+        };
+
+        // Send login request
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(data),
         );
+
+        if (response.statusCode == 200) {
+          // Login successful
+          final responseData = jsonDecode(response.body);
+
+          // Save authentication token and user info to shared preferences
+          final SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', responseData['token']);
+          await prefs.setString('username', responseData['user']['username']);
+          await prefs.setString('name', responseData['user']['name']);
+
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Login Berhasil')));
+
+            // Navigate to home page
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            );
+          }
+        } else {
+          // Login failed
+          final responseData = jsonDecode(response.body);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(responseData['message'] ?? 'Login Gagal')),
+            );
+          }
+        }
+      } catch (e) {
+        // Handle connection errors
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+        }
+      } finally {
+        // Reset loading state
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -60,12 +120,12 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 40),
 
-                  // Email
+                  // Username/Email
                   TextFormField(
-                    controller: _emailController,
+                    controller: _usernameController,
                     decoration: InputDecoration(
-                      labelText: "Email",
-                      hintText: "Enter email",
+                      labelText: "Username atau Email",
+                      hintText: "Masukkan username atau email",
                       filled: true,
                       fillColor: const Color(0xFFF5F5F5),
                       border: OutlineInputBorder(
@@ -75,7 +135,9 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     validator:
                         (value) =>
-                            value!.isEmpty ? "Email tidak boleh kosong" : null,
+                            value!.isEmpty
+                                ? "Username atau email tidak boleh kosong"
+                                : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -85,7 +147,7 @@ class _LoginPageState extends State<LoginPage> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: "Password",
-                      hintText: "Enter password",
+                      hintText: "Masukkan password",
                       filled: true,
                       fillColor: const Color(0xFFF5F5F5),
                       border: OutlineInputBorder(
@@ -116,9 +178,7 @@ class _LoginPageState extends State<LoginPage> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {
-                        // Forgot password action
-                      },
+                      onPressed: () {},
                       child: const Text(
                         "Lupa password?",
                         style: TextStyle(color: Colors.grey),
@@ -129,7 +189,7 @@ class _LoginPageState extends State<LoginPage> {
 
                   // Sign In Button
                   ElevatedButton(
-                    onPressed: _login,
+                    onPressed: _isLoading ? null : _login,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF052659),
                       foregroundColor: Colors.white,
@@ -138,7 +198,12 @@ class _LoginPageState extends State<LoginPage> {
                         borderRadius: BorderRadius.circular(25),
                       ),
                     ),
-                    child: const Text("Masuk"),
+                    child:
+                        _isLoading
+                            ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                            : const Text("Masuk"),
                   ),
                   const SizedBox(height: 20),
 
@@ -165,17 +230,17 @@ class _LoginPageState extends State<LoginPage> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const RegisPage(),
-                        ), // Adjust page name
+                        ),
                       );
                     },
                     child: RichText(
-                      text: TextSpan(
+                      text: const TextSpan(
                         text: "Belum memiliki akun? ",
-                        style: const TextStyle(color: Colors.black),
+                        style: TextStyle(color: Colors.black),
                         children: [
                           TextSpan(
                             text: "Daftar",
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF052659),
                             ),
@@ -193,12 +258,9 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Reusable social icon widget
   Widget _socialIcon(String path) {
     return GestureDetector(
-      onTap: () {
-        // Action for social login
-      },
+      onTap: () {},
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: const BoxDecoration(

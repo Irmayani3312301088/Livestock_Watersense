@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'riwayat_page.dart';
 import 'notifikasi_page.dart';
 import 'user_management/user_list_page.dart';
+import 'edit_profile.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,8 +34,7 @@ class _HomePageState extends State<HomePage> {
     const DashboardPage(),
     RiwayatPage(),
     const NotifikasiPage(),
-
-    Center(child: Text('Menu Lain Page')), // Placeholder
+    const EditProfilePage(),
   ];
 
   @override
@@ -44,8 +44,8 @@ class _HomePageState extends State<HomePage> {
       body: SafeArea(child: _pages[_currentIndex]),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: Colors.blue.shade900,
+        unselectedItemColor: Colors.black54,
         type: BottomNavigationBarType.fixed,
         onTap: (int index) {
           setState(() {
@@ -53,16 +53,16 @@ class _HomePageState extends State<HomePage> {
           });
         },
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Dashboard'),
+          BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Riwayat'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Riwayat'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
+            icon: Icon(Icons.notifications_none),
             label: 'Notifikasi',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.menu), label: 'Menu Lain'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Edit Profile',
+          ),
         ],
       ),
     );
@@ -75,17 +75,21 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Image.asset('assets/logo.png', width: 90, height: 85),
+              Image.asset(
+                'assets/logo.png',
+                width: isSmallScreen ? 70 : 90,
+                height: isSmallScreen ? 65 : 85,
+              ),
               const CircleAvatar(
                 radius: 20,
                 backgroundImage: AssetImage('assets/profile.png'),

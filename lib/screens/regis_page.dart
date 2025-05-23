@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
+import 'home_page.dart';
 
 void main() {
   runApp(const RegisPage());
@@ -28,9 +32,75 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _agreeToTerms = false;
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
-  final List<String> _roles = ['Admin', 'Pengguna'];
-  String? _selectedRole;
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  Future<void> _register() async {
+    if (_formKey.currentState!.validate() && _agreeToTerms) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final Uri url = Uri.parse('https://10.0.2.2:5000/register');
+        final Map<String, String> data = {
+          'name': _nameController.text,
+          'username': _usernameController.text,
+          'email': _emailController.text,
+          'password': _passwordController.text,
+        };
+
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(data),
+        );
+
+        if (response.statusCode == 201) {
+          final responseData = jsonDecode(response.body);
+          final SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', responseData['token']);
+          await prefs.setString('username', responseData['user']['username']);
+          await prefs.setString('name', responseData['user']['name']);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Registrasi berhasil!')),
+            );
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            );
+          }
+        } else {
+          final responseData = jsonDecode(response.body);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(responseData['message'] ?? 'Registrasi gagal'),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,25 +115,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
                     "Daftar",
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  _buildTextField(label: "Name", hintText: "name"),
-                  _buildTextField(label: "Username", hintText: "username"),
+                  _buildTextField(
+                    label: "Name",
+                    hintText: "Masukkan nama lengkap",
+                    controller: _nameController,
+                  ),
+                  _buildTextField(
+                    label: "Username",
+                    hintText: "Masukkan username",
+                    controller: _usernameController,
+                  ),
                   _buildTextField(
                     label: "Email",
-                    hintText: "email@gmail.com",
+                    hintText: "email@example.com",
                     keyboardType: TextInputType.emailAddress,
+                    controller: _emailController,
                   ),
                   _buildTextField(
                     label: "Password",
                     hintText: "Minimal 8 karakter",
                     obscureText: _obscurePassword,
+                    controller: _passwordController,
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
@@ -77,8 +155,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       },
                     ),
                   ),
-                  _buildDropdownField(),
-                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Checkbox(
@@ -91,19 +167,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       Expanded(
                         child: RichText(
-                          text: TextSpan(
-                            text:
-                                "Dengan mendaftar, saya setuju dengan persyaratan ",
-                            style: const TextStyle(color: Colors.black),
+                          text: const TextSpan(
+                            text: "Dengan mendaftar, saya setuju dengan ",
+                            style: TextStyle(color: Colors.black),
                             children: [
                               TextSpan(
                                 text: "Terms of Use",
-                                style: const TextStyle(color: Colors.blue),
+                                style: TextStyle(color: Colors.blue),
                               ),
-                              const TextSpan(text: " & "),
+                              TextSpan(text: " & "),
                               TextSpan(
                                 text: "Privacy Policy",
-                                style: const TextStyle(color: Colors.blue),
+                                style: TextStyle(color: Colors.blue),
                               ),
                             ],
                           ),
@@ -123,13 +198,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: () {
-                        if (_formKey.currentState!.validate() &&
-                            _agreeToTerms) {
-                          // Handle Sign Up Logic
-                        }
-                      },
-                      child: const Text("Daftar"),
+                      onPressed: _isLoading ? null : _register,
+                      child:
+                          _isLoading
+                              ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                              : const Text("Daftar"),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -154,21 +229,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  const Center(child: Text("OR")),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildSocialIcon("assets/google.png"),
-                      const SizedBox(width: 16),
-                      _buildSocialIcon("assets/facebook.png"),
-                      const SizedBox(width: 16),
-                      _buildSocialIcon("assets/apple.png"),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -181,88 +241,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget _buildTextField({
     required String label,
     required String hintText,
+    required TextEditingController controller,
     bool obscureText = false,
     TextInputType? keyboardType,
     Widget? suffixIcon,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label),
-        const SizedBox(height: 6),
-        TextFormField(
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          validator:
-              (value) => value == null || value.isEmpty ? "Required" : null,
-          decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle: const TextStyle(color: Colors.grey),
-            suffixIcon: suffixIcon,
-            filled: true,
-            fillColor: const Color(0xFFF9FAFB),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 14,
-            ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: TextFormField(
+        controller: controller,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        validator:
+            (value) => value == null || value.isEmpty ? "Required" : null,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hintText,
+          floatingLabelBehavior: FloatingLabelBehavior.auto,
+          hintStyle: const TextStyle(color: Colors.grey),
+          suffixIcon: suffixIcon,
+          filled: true,
+          fillColor: const Color(0xFFF9FAFB),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 14,
           ),
         ),
-        const SizedBox(height: 14),
-      ],
-    );
-  }
-
-  Widget _buildDropdownField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Role"),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          value: _selectedRole,
-          items:
-              _roles.map((role) {
-                return DropdownMenuItem(value: role, child: Text(role));
-              }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedRole = value;
-            });
-          },
-          decoration: InputDecoration(
-            hintText: "Pilih role",
-            hintStyle: const TextStyle(color: Colors.grey),
-            filled: true,
-            fillColor: const Color(0xFFF9FAFB),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 14,
-            ),
-          ),
-          validator: (value) => value == null ? "Please select a role" : null,
-        ),
-        const SizedBox(height: 14),
-      ],
-    );
-  }
-
-  Widget _buildSocialIcon(String assetPath) {
-    return InkWell(
-      onTap: () {
-        // Handle social login
-      },
-      child: CircleAvatar(
-        radius: 20,
-        backgroundColor: Colors.white,
-        backgroundImage: AssetImage(assetPath),
       ),
     );
   }

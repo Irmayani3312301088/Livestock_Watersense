@@ -23,7 +23,11 @@ class PompaManualPage extends StatelessWidget {
                 color: Color.fromARGB(255, 45, 192, 45),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.power_settings_new, color: Colors.white, size: 60),
+              child: Icon(
+                Icons.power_settings_new,
+                color: Colors.white,
+                size: 60,
+              ),
             ),
             SizedBox(height: 50),
 
@@ -33,10 +37,7 @@ class PompaManualPage extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    blurRadius: 6,
-                  ),
+                  BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 6),
                 ],
               ),
               child: Row(
