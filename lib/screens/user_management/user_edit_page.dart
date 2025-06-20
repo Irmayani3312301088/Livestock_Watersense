@@ -1,11 +1,19 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'user_list_page.dart';
+import '../../utils/dialog_utils.dart'; 
 
 class UserEditPage extends StatefulWidget {
-  final Map<String, String> user; // <-- Ini nama parameternya user
+  final Map<String, dynamic>
+  user;
+  final bool isEditMode; 
 
-  const UserEditPage({Key? key, required this.user}) : super(key: key);
+  const UserEditPage({Key? key, required this.user, this.isEditMode = true})
+    : super(key: key);
 
   @override
   State<UserEditPage> createState() => _UserEditPageState();
@@ -18,23 +26,53 @@ class _UserEditPageState extends State<UserEditPage> {
   late TextEditingController _emailController;
   late TextEditingController _roleController;
   late TextEditingController _passwordController;
+
   File? _selectedImage;
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
+  String _baseUrl = 'http://10.0.2.2:5000/api';
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.user['name']);
-    _usernameController = TextEditingController(text: widget.user['username']);
-    _emailController = TextEditingController(text: widget.user['email']);
-    _roleController = TextEditingController(text: widget.user['role']);
+    _nameController = TextEditingController(
+      text: widget.user['name']?.toString() ?? '',
+    );
+    _usernameController = TextEditingController(
+      text: widget.user['username']?.toString() ?? '',
+    );
+    _emailController = TextEditingController(
+      text: widget.user['email']?.toString() ?? '',
+    );
+    _roleController = TextEditingController(
+      text: widget.user['role']?.toString() ?? 'user',
+    );
     _passwordController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
+    _roleController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _getAuthToken() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
   }
 
   Future<void> _pickImage() async {
     final pickedFile = await ImagePicker().pickImage(
       source: ImageSource.gallery,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 80,
     );
+
     if (pickedFile != null) {
       setState(() {
         _selectedImage = File(pickedFile.path);
@@ -42,43 +80,152 @@ class _UserEditPageState extends State<UserEditPage> {
     }
   }
 
-  void _saveUser() {
-    if (_formKey.currentState!.validate()) {
-      Navigator.pop(context, {
-        'name': _nameController.text,
-        'username': _usernameController.text,
-        'email': _emailController.text,
-        'role': _roleController.text,
-        'imageUrl':
-            widget.user['imageUrl'] ?? 'assets/profile.png', // jaga-jaga
-      });
+  Future<void> _saveUser() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.check_circle, color: Colors.green, size: 80),
-                  SizedBox(height: 10),
-                  Text(
-                    'User berhasil\ndiupdate!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ],
-              ),
-            ),
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      String? token = await _getAuthToken();
+      if (token == null) {
+        _showErrorDialog('Token tidak ditemukan. Silakan login ulang.');
+        return;
+      }
+
+      var request = http.MultipartRequest(
+        widget.isEditMode ? 'PUT' : 'POST',
+        Uri.parse(
+          widget.isEditMode
+              ? '$_baseUrl/users/${widget.user['id']}'
+              : '$_baseUrl/users',
+        ),
       );
 
-      Future.delayed(const Duration(seconds: 2), () {
-        Navigator.of(context).pop();
+      // Add headers
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'multipart/form-data',
+      });
+
+      // Add form fields
+      request.fields.addAll({
+        'name': _nameController.text.trim(),
+        'username': _usernameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'role': _roleController.text.trim(),
+      });
+
+      // Add password field only if it's filled (for edit mode it's optional)
+      if (_passwordController.text.isNotEmpty) {
+        request.fields['password'] = _passwordController.text;
+      }
+
+      // Add image file if selected
+      if (_selectedImage != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'profile_image',
+            _selectedImage!.path,
+          ),
+        );
+      }
+
+      // Send request
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      Map<String, dynamic> responseData = json.decode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Success - gunakan dialog utils
+        _showSimpleSuccessDialog(responseData);
+      } else {
+        // Error from server
+        _showErrorDialog(
+          responseData['message'] ?? 'Terjadi kesalahan saat menyimpan data.',
+        );
+      }
+    } catch (e) {
+      print('Error saving user: $e');
+      _showErrorDialog('Terjadi kesalahan: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
+  }
+
+  void _showSimpleSuccessDialog(Map<String, dynamic> responseData) {
+    showAutoCloseSuccessPopup(
+      context,
+      'User berhasil\ndisimpan!',
+      onDone: () {
+        // Kembali ke halaman sebelumnya dengan data
+        Navigator.of(context).pop({
+          'success': true,
+          'data': responseData['data'],
+          'message': responseData['message'] ?? 'User berhasil disimpan!',
+        });
+      },
+      durationSeconds: 2,
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text('Error'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  String _getImageUrl() {
+    if (_selectedImage != null) {
+      return _selectedImage!.path;
+    } else if (widget.user['profile_image'] != null &&
+        widget.user['profile_image'].isNotEmpty) {
+      // Return full URL for network image
+      return '$_baseUrl/uploads/profiles/${widget.user['profile_image']}';
+    }
+    return '';
+  }
+
+  Widget _buildProfileImage() {
+    String imageUrl = _getImageUrl();
+
+    return GestureDetector(
+      onTap: _pickImage,
+      child: CircleAvatar(
+        radius: 30,
+        backgroundColor: Colors.purple.shade100,
+        backgroundImage:
+            imageUrl.isNotEmpty
+                ? (_selectedImage != null
+                    ? FileImage(_selectedImage!) as ImageProvider
+                    : NetworkImage(imageUrl))
+                : null,
+        child:
+            imageUrl.isEmpty
+                ? const Icon(Icons.person, color: Colors.white, size: 30)
+                : null,
+      ),
+    );
   }
 
   @override
@@ -96,11 +243,13 @@ class _UserEditPageState extends State<UserEditPage> {
                     icon: const Icon(Icons.arrow_back, color: Colors.black),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Center(
                       child: Text(
-                        'Manajemen User - Edit',
-                        style: TextStyle(
+                        widget.isEditMode
+                            ? 'Manajemen User - Edit'
+                            : 'Manajemen User - Tambah',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.black,
@@ -125,29 +274,7 @@ class _UserEditPageState extends State<UserEditPage> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          GestureDetector(
-                            onTap: _pickImage,
-                            child: CircleAvatar(
-                              radius: 30,
-                              backgroundColor: Colors.purple.shade100,
-                              backgroundImage:
-                                  _selectedImage != null
-                                      ? FileImage(_selectedImage!)
-                                      : (widget.user['imageUrl'] != null
-                                          ? AssetImage(widget.user['imageUrl']!)
-                                              as ImageProvider
-                                          : null),
-                              child:
-                                  _selectedImage == null &&
-                                          widget.user['imageUrl'] == null
-                                      ? const Icon(
-                                        Icons.person,
-                                        color: Colors.white,
-                                        size: 30,
-                                      )
-                                      : null,
-                            ),
-                          ),
+                          _buildProfileImage(),
                           const SizedBox(width: 16),
                           Expanded(
                             child: _buildTextField(
@@ -169,20 +296,17 @@ class _UserEditPageState extends State<UserEditPage> {
                         controller: _emailController,
                         hintText: 'Email',
                         icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 20),
-                      _buildTextField(
-                        controller: _roleController,
-                        hintText: 'Role',
-                        icon: Icons.work_outline,
-                      ),
+                      _buildRoleDropdown(),
                       const SizedBox(height: 20),
                       _buildPasswordField(),
                       const SizedBox(height: 30),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _saveUser,
+                          onPressed: _isLoading ? null : _saveUser,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF00296B),
                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -190,13 +314,21 @@ class _UserEditPageState extends State<UserEditPage> {
                               borderRadius: BorderRadius.circular(30),
                             ),
                           ),
-                          child: const Text(
-                            'Simpan Perubahan',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          child:
+                              _isLoading
+                                  ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                  : Text(
+                                    widget.isEditMode
+                                        ? 'Simpan Perubahan'
+                                        : 'Tambah User',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                         ),
                       ),
                     ],
@@ -215,13 +347,25 @@ class _UserEditPageState extends State<UserEditPage> {
     required String hintText,
     required IconData icon,
     bool obscureText = false,
+    TextInputType keyboardType = TextInputType.text,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
-      validator:
-          (value) =>
-              (value == null || value.isEmpty) ? '$hintText wajib diisi' : null,
+      keyboardType: keyboardType,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return '$hintText wajib diisi';
+        }
+        if (hintText == 'Email' &&
+            !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+          return 'Format email tidak valid';
+        }
+        if (hintText == 'Username' && value.length < 3) {
+          return 'Username minimal 3 karakter';
+        }
+        return null;
+      },
       decoration: InputDecoration(
         filled: true,
         fillColor: Colors.white,
@@ -239,19 +383,63 @@ class _UserEditPageState extends State<UserEditPage> {
     );
   }
 
+  Widget _buildRoleDropdown() {
+    final roleValue =
+        ['admin', 'user'].contains(_roleController.text)
+            ? _roleController.text
+            : 'user';
+
+    return DropdownButtonFormField<String>(
+      value: roleValue,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white,
+        hintText: 'Role',
+        prefixIcon: const Icon(Icons.work_outline),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'admin', child: Text('Admin')),
+        DropdownMenuItem(value: 'user', child: Text('User')),
+      ],
+      onChanged: (value) {
+        setState(() {
+          _roleController.text = value ?? 'user';
+        });
+      },
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Role wajib dipilih';
+        }
+        return null;
+      },
+    );
+  }
+
   Widget _buildPasswordField() {
     return TextFormField(
       controller: _passwordController,
       obscureText: !_isPasswordVisible,
-      validator:
-          (value) =>
-              (value == null || value.isEmpty)
-                  ? 'Konfirmasi Password wajib diisi'
-                  : null,
+      validator: (value) {
+        if (!widget.isEditMode && (value == null || value.isEmpty)) {
+          return 'Password wajib diisi';
+        }
+        if (value != null && value.isNotEmpty && value.length < 6) {
+          return 'Password minimal 6 karakter';
+        }
+        return null;
+      },
       decoration: InputDecoration(
         filled: true,
         fillColor: Colors.white,
-        hintText: 'Konfirmasi Password',
+        hintText: widget.isEditMode ? 'Password Baru (Opsional)' : 'Password',
         prefixIcon: const Icon(Icons.lock_outline),
         suffixIcon: IconButton(
           icon: Icon(

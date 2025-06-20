@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'user_add_page.dart';
 import 'user_edit_page.dart';
 
@@ -10,63 +12,130 @@ class UserListPage extends StatefulWidget {
 }
 
 class _UserListPageState extends State<UserListPage> {
-  List<Map<String, String>> users = [
-    {'name': 'Irma', 'imageUrl': 'assets/profile.png'},
-    {'name': 'Sindy', 'imageUrl': 'assets/profile.png'},
-    {'name': 'Wily', 'imageUrl': 'assets/profile.png'},
-  ];
-
+  List<Map<String, dynamic>> users = [];
+  List<Map<String, dynamic>> filteredUsers = [];
   String searchText = '';
+  bool isLoading = true;
+
+  // Base URL untuk API
+  static const String baseUrl = 'http://10.0.2.2:5000/api';
+
+  String selectedStatus = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsers();
+  }
+
+  // Fungsi untuk mengambil data users dari backend
+  Future<void> _fetchUsers() async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
+
+      // Ambil token dari storage (sesuaikan dengan implementasi auth Anda)
+      String? token = await _getAuthToken();
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/users'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success']) {
+          setState(() {
+            users = List<Map<String, dynamic>>.from(
+              data['data'].map(
+                (user) => {
+                  'id': user['id'],
+                  'name': user['name'] ?? '',
+                  'username': user['username'] ?? '',
+                  'email': user['email'] ?? '',
+                  'role': user['role'] ?? '',
+                  'imageUrl':
+                      user['profile_image'] != null
+                          ? '$baseUrl/uploads/profiles/${user['profile_image']}'
+                          : '',
+                  'status': user['status'] ?? 'pending',
+                },
+              ),
+            );
+            _filterUsers();
+            isLoading = false;
+          });
+        }
+      } else {
+        _showErrorSnackBar('Gagal mengambil data pengguna');
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error: ${e.toString()}');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Fungsi untuk mendapatkan token auth (implementasikan sesuai sistem auth Anda)
+  Future<String?> _getAuthToken() async {
+    // TODO: Implementasikan pengambilan token dari SharedPreferences atau secure storage
+    // Contoh implementasi:
+    // SharedPreferences prefs = await SharedPreferences.getInstance();
+    // return prefs.getString('auth_token');
+    return 'your-auth-token-here'; // Sementara hardcode
+  }
 
   void _addUser() async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const UserAddPage()),
     );
+
     if (result != null) {
-      setState(() {
-        users.add(result);
-      });
+      // Refresh data setelah menambah user
+      _fetchUsers();
     }
   }
 
   void _editUser(int index) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => UserEditPage(user: users[index])),
+      MaterialPageRoute(
+        builder: (context) => UserEditPage(user: filteredUsers[index]),
+      ),
     );
+
     if (result != null) {
-      setState(() {
-        users[index] = result;
-      });
+      // Refresh data setelah edit user
+      _fetchUsers();
     }
   }
 
   void _deleteUser(int index) {
+    final user = filteredUsers[index];
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
             title: const Text('Konfirmasi Hapus'),
-            content: Text('Yakin ingin menghapus ${users[index]['name']}?'),
+            content: Text('Yakin ingin menghapus ${user['name']}?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Batal'),
               ),
               TextButton(
-                onPressed: () {
-                  setState(() {
-                    users.removeAt(index);
-                  });
+                onPressed: () async {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('User berhasil dihapus!'),
-                      backgroundColor: Colors.redAccent,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
+                  await _performDelete(user['id']);
                 },
                 child: const Text('Hapus', style: TextStyle(color: Colors.red)),
               ),
@@ -75,184 +144,505 @@ class _UserListPageState extends State<UserListPage> {
     );
   }
 
-  List<Map<String, String>> get filteredUsers {
-    if (searchText.isEmpty) return users;
-    return users.where((user) {
-      return user['name']!.toLowerCase().contains(searchText.toLowerCase());
-    }).toList();
+  // Fungsi untuk menghapus user ke backend
+  Future<void> _performDelete(int userId) async {
+    try {
+      String? token = await _getAuthToken();
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/users/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User berhasil dihapus!'),
+              backgroundColor: Colors.redAccent,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          // Refresh data setelah hapus
+          _fetchUsers();
+        } else {
+          _showErrorSnackBar(data['message'] ?? 'Gagal menghapus user');
+        }
+      } else {
+        _showErrorSnackBar('Gagal menghapus user');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error: ${e.toString()}');
+    }
+  }
+
+  Future<void> _activateUser(int userId) async {
+    try {
+      String? token = await _getAuthToken();
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/activate-user'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({'id': userId}),
+      );
+
+      final data = json.decode(response.body);
+      if (data['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User berhasil diaktifkan!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _fetchUsers();
+      } else {
+        _showErrorSnackBar(data['message'] ?? 'Gagal mengaktifkan user');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error: ${e.toString()}');
+    }
+  }
+
+  void _filterUsers() {
+    setState(() {
+      filteredUsers =
+          users.where((user) {
+            final matchesSearch =
+                user['name']!.toLowerCase().contains(
+                  searchText.toLowerCase(),
+                ) ||
+                (user['username'] ?? '').toLowerCase().contains(
+                  searchText.toLowerCase(),
+                ) ||
+                (user['email'] ?? '').toLowerCase().contains(
+                  searchText.toLowerCase(),
+                );
+
+            final matchesStatus =
+                selectedStatus == 'all' || user['status'] == selectedStatus;
+
+            return matchesSearch && matchesStatus;
+          }).toList();
+    });
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    double screenHeight = MediaQuery.of(context).size.height;
-    double screenWidth = MediaQuery.of(context).size.width;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFFDF6FF),
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
-          child: Column(
-            children: [
-              SizedBox(height: screenHeight * 0.02),
-              // Custom AppBar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const Text(
-                    'Manajemen User',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const CircleAvatar(
-                    backgroundImage: AssetImage('assets/profile.png'),
-                  ),
-                ],
-              ),
-              SizedBox(height: screenHeight * 0.02),
-              // Search dan Tambah
-              Row(
-                children: [
-                  Expanded(
+      backgroundColor: const Color.fromARGB(255, 253, 252, 253),
+      appBar: AppBar(
+        backgroundColor: const Color.fromARGB(255, 253, 252, 253),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Manajemen User',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.grey[400],
+              child: const Icon(Icons.person, color: Colors.white, size: 18),
+            ),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            // Search dan Tambah
+            Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: SizedBox(
+                    height: 48,
                     child: TextField(
                       decoration: InputDecoration(
                         hintText: 'Cari user...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
+                        hintStyle: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: Colors.grey[600],
+                          size: 20,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF0C1A3E),
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
                       ),
                       onChanged: (value) {
                         setState(() {
                           searchText = value;
+                          _filterUsers();
                         });
                       },
                     ),
                   ),
-                  SizedBox(width: screenWidth * 0.02),
-                  ElevatedButton(
-                    onPressed: _addUser,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _addUser,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0C1A3E),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        elevation: 2,
                       ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: screenWidth * 0.04,
-                        vertical: screenHeight * 0.015,
+                      child: const Text(
+                        'Tambah',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                    child: const Text('Tambah'),
                   ),
-                ],
-              ),
-              SizedBox(height: screenHeight * 0.03),
-              // List User
-              Expanded(
-                child:
-                    filteredUsers.isEmpty
-                        ? const Center(child: Text('User tidak ditemukan'))
-                        : ListView.builder(
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Filter:', style: TextStyle(fontWeight: FontWeight.bold)),
+                DropdownButton<String>(
+                  value: selectedStatus,
+                  items: [
+                    DropdownMenuItem(value: 'all', child: Text('Semua')),
+                    DropdownMenuItem(value: 'active', child: Text('Aktif')),
+                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedStatus = value;
+                        _filterUsers();
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // List User
+            Expanded(
+              child:
+                  isLoading
+                      ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF0C1A3E),
+                        ),
+                      )
+                      : filteredUsers.isEmpty
+                      ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              searchText.isEmpty
+                                  ? 'Belum ada user yang terdaftar'
+                                  : 'User tidak ditemukan',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                      : RefreshIndicator(
+                        onRefresh: _fetchUsers,
+                        color: const Color(0xFF0C1A3E),
+                        child: ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           itemCount: filteredUsers.length,
                           itemBuilder: (context, index) {
                             final user = filteredUsers[index];
                             return Padding(
-                              padding: EdgeInsets.only(
-                                bottom: screenHeight * 0.02,
-                              ),
+                              padding: const EdgeInsets.only(bottom: 12.0),
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 5,
+                                      color: Colors.black.withOpacity(0.04),
+                                      blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: screenWidth * 0.04,
-                                    vertical: screenHeight * 0.015,
-                                  ),
-                                  leading: CircleAvatar(
-                                    backgroundImage: AssetImage(
-                                      user['imageUrl']!,
-                                    ),
-                                    radius: 26,
-                                  ),
-                                  title: Text(
-                                    user['name']!,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: screenWidth * 0.045,
-                                    ),
-                                  ),
-                                  trailing: SizedBox(
-                                    width: screenWidth * 0.3,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        ElevatedButton(
-                                          onPressed:
-                                              () => _editUser(
-                                                users.indexOf(user),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Row(
+                                    children: [
+                                      // Avatar
+                                      CircleAvatar(
+                                        backgroundColor: Colors.grey[300],
+                                        radius: 24,
+                                        backgroundImage:
+                                            user['imageUrl'] != ''
+                                                ? NetworkImage(user['imageUrl'])
+                                                : null,
+                                        child:
+                                            user['imageUrl'] == ''
+                                                ? const Icon(
+                                                  Icons.person,
+                                                  size: 24,
+                                                  color: Colors.white,
+                                                )
+                                                : null,
+                                      ),
+                                      const SizedBox(width: 16),
+                                      // User Info
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              user['name']!,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 16,
+                                                color: Colors.black87,
                                               ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.orange,
-                                            minimumSize: const Size(50, 36),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 0,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'Edit',
-                                            style: TextStyle(fontSize: 12),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        ElevatedButton(
-                                          onPressed:
-                                              () => _deleteUser(
-                                                users.indexOf(user),
+                                            if (user['email'] != null &&
+                                                user['email'].isNotEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 4,
+                                                ),
+                                                child: Text(
+                                                  user['email'],
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
                                               ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red,
-                                            minimumSize: const Size(50, 36),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 0,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'Hapus',
-                                            style: TextStyle(fontSize: 12),
-                                          ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Action Buttons
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Tombol Edit
+                                          SizedBox(
+                                            height: 32,
+                                            child: ElevatedButton(
+                                              onPressed: () => _editUser(index),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.orange,
+                                                foregroundColor: Colors.white,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                    ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                elevation: 1,
+                                                minimumSize: Size.zero,
+                                              ),
+                                              child: const Text(
+                                                'Edit',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+
+                                          // Tombol Hapus
+                                          SizedBox(
+                                            height: 32,
+                                            child: ElevatedButton(
+                                              onPressed:
+                                                  () => _deleteUser(index),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.red,
+                                                foregroundColor: Colors.white,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                    ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                elevation: 1,
+                                                minimumSize: Size.zero,
+                                              ),
+                                              child: const Text(
+                                                'Hapus',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+
+                                          // Tombol Aktifkan (jika status = pending)
+                                          if (user['status'] == 'pending') ...[
+                                            const SizedBox(width: 6),
+                                            SizedBox(
+                                              height: 32,
+                                              child: ElevatedButton(
+                                                onPressed: () {
+                                                  showDialog(
+                                                    context: context,
+                                                    builder:
+                                                        (
+                                                          context,
+                                                        ) => AlertDialog(
+                                                          title: const Text(
+                                                            'Konfirmasi Aktivasi',
+                                                          ),
+                                                          content: Text(
+                                                            'Yakin ingin mengaktifkan ${user['name']}?',
+                                                          ),
+                                                          actions: [
+                                                            TextButton(
+                                                              onPressed:
+                                                                  () =>
+                                                                      Navigator.pop(
+                                                                        context,
+                                                                      ),
+                                                              child: const Text(
+                                                                'Batal',
+                                                              ),
+                                                            ),
+                                                            TextButton(
+                                                              onPressed: () {
+                                                                Navigator.pop(
+                                                                  context,
+                                                                );
+                                                                _activateUser(
+                                                                  user['id'],
+                                                                );
+                                                              },
+                                                              child: const Text(
+                                                                'Aktifkan',
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                  );
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.green,
+                                                  foregroundColor: Colors.white,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                      ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          6,
+                                                        ),
+                                                  ),
+                                                  elevation: 1,
+                                                  minimumSize: Size.zero,
+                                                ),
+                                                child: const Text(
+                                                  'Aktifkan',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             );
                           },
                         ),
-              ),
-            ],
-          ),
+                      ),
+            ),
+          ],
         ),
       ),
     );

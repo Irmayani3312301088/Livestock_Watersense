@@ -2,6 +2,9 @@ import 'package:Livestock_Watersense/screens/splash_screen.dart';
 import 'package:Livestock_Watersense/screens/user_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'screens/home_page.dart';
+import 'screens/profile.dart';
+import 'screens/edit_profile.dart';
+import 'screens/login_page.dart';
 
 void main() {
   runApp(const MyApp());

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 import 'home_page.dart';
 import 'regis_page.dart';
 
@@ -12,240 +12,774 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  bool _obscurePassword = true;
+  final FocusNode _emailFocus = FocusNode();
+  final FocusNode _passwordFocus = FocusNode();
+
+  bool _obscureText = true;
   bool _isLoading = false;
+  bool _rememberMe = false;
 
-  Future<void> _login() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
-      try {
-        // URL to login endpoint using HTTPS
-        final Uri url = Uri.parse('https://10.0.2.2:5000/login');
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimations();
+    _loadSavedCredentials();
 
-        // Prepare login data
-        final Map<String, String> data = {
-          'username': _usernameController.text,
-          'password': _passwordController.text,
-        };
+    // Add listeners for focus changes to trigger rebuild
+    _emailFocus.addListener(() => setState(() {}));
+    _passwordFocus.addListener(() => setState(() {}));
+  }
 
-        // Send login request
-        final response = await http.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(data),
-        );
+  void _setupAnimations() {
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
 
-        if (response.statusCode == 200) {
-          // Login successful
-          final responseData = jsonDecode(response.body);
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
 
-          // Save authentication token and user info to shared preferences
-          final SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setString('token', responseData['token']);
-          await prefs.setString('username', responseData['user']['username']);
-          await prefs.setString('name', responseData['user']['name']);
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
 
-          if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Login Berhasil')));
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+    );
 
-            // Navigate to home page
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const HomePage()),
-            );
-          }
-        } else {
-          // Login failed
-          final responseData = jsonDecode(response.body);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(responseData['message'] ?? 'Login Gagal')),
-            );
-          }
-        }
-      } catch (e) {
-        // Handle connection errors
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
-        }
-      } finally {
-        // Reset loading state
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+    _fadeController.forward();
+    _slideController.forward();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedEmail = prefs.getString('saved_email');
+      if (savedEmail != null && mounted) {
+        setState(() => _rememberMe = true);
       }
+    } catch (e) {
+      debugPrint('Error loading saved credentials: $e');
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Heading
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "Selamat Datang",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Image.asset('assets/wave.png', width: 28, height: 28),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
+  void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    super.dispose();
+  }
 
-                  // Username/Email
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: InputDecoration(
-                      labelText: "Username atau Email",
-                      hintText: "Masukkan username atau email",
-                      filled: true,
-                      fillColor: const Color(0xFFF5F5F5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+  // Tambahkan method validasi untuk checkbox "Ingat saya"
+  bool _validateRememberMe() {
+    if (!_rememberMe) {
+      HapticFeedback.heavyImpact();
+      _showErrorSnackBar('Harap centang "Ingat saya" untuk melanjutkan');
+      return false;
+    }
+    return true;
+  }
+
+  // Modifikasi method _login() yang sudah ada
+  Future<void> _login() async {
+    if (_formKey.currentState!.validate()) {
+      // Validasi checkbox "Ingat saya" sebelum login
+      if (!_validateRememberMe()) {
+        return; // Stop jika checkbox belum dicentang
+      }
+
+      // Haptic feedback
+      HapticFeedback.lightImpact();
+
+      // Unfocus to hide keyboard
+      FocusScope.of(context).unfocus();
+
+      setState(() => _isLoading = true);
+
+      try {
+        // Save credentials if remember me is checked
+        if (_rememberMe) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('saved_email', _emailController.text.trim());
+        }
+
+        final response = await ApiService.login(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+        );
+
+        if (!mounted) return;
+
+        setState(() => _isLoading = false);
+
+        if (response['success'] == true) {
+          final user = response['data']['user'];
+          final token = response['data']['token'];
+
+          await ApiService.saveToken(token);
+          await ApiService.saveUserData(user);
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('email', user['email'] ?? '');
+          await prefs.setString('name', user['name'] ?? '');
+
+          final profile = await ApiService.getProfile();
+          if (profile['success']) {
+            print("User profile: ${profile['data']}");
+          }
+
+          // Success haptic feedback
+          HapticFeedback.mediumImpact();
+
+          _showSuccessSnackBar(
+            'Login berhasil! Selamat datang ${user['name'] ?? 'User'}',
+          );
+
+          // Smooth transition to home page
+          await Future.delayed(const Duration(milliseconds: 500));
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+                pageBuilder:
+                    (context, animation, secondaryAnimation) =>
+                        const HomePage(),
+                transitionDuration: const Duration(milliseconds: 600),
+                transitionsBuilder: (
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  child,
+                ) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(1.0, 0.0),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInOutCubic,
                       ),
                     ),
-                    validator:
-                        (value) =>
-                            value!.isEmpty
-                                ? "Username atau email tidak boleh kosong"
-                                : null,
-                  ),
-                  const SizedBox(height: 16),
+                    child: child,
+                  );
+                },
+              ),
+            );
+          }
+        } else {
+          // Cek jika akun belum aktif
+          if (response['message'].toString().toLowerCase().contains(
+                'tidak ditemukan',
+              ) ||
+              response['message'].toString().toLowerCase().contains(
+                'belum terdaftar',
+              )) {
+            _showErrorSnackBar('Akun belum aktif. Silakan hubungi admin.');
+          } else {
+            _showErrorSnackBar(
+              response['message'] ?? 'Login gagal. Silakan coba lagi.',
+            );
+          }
+          HapticFeedback.heavyImpact();
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          HapticFeedback.heavyImpact();
+          _showErrorSnackBar('Terjadi kesalahan. Silakan coba lagi.');
+        }
+      }
+    } else {
+      // Validation error haptic feedback
+      HapticFeedback.lightImpact();
+    }
+  }
 
-                  // Password
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: "Password",
-                      hintText: "Masukkan password",
-                      filled: true,
-                      fillColor: const Color(0xFFF5F5F5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+  void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isTablet = size.width > 600;
+    final headerHeight = size.height * (isTablet ? 0.35 : 0.30);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0C1A3E),
+      body: Column(
+        children: [
+          // Animated Header section with profile icon
+          AnimatedBuilder(
+            animation: _fadeAnimation,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _fadeAnimation.value,
+                child: Container(
+                  height: headerHeight,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0C1A3E),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
                       ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
+                    ],
+                  ),
+                  child: SafeArea(
+                    child: Center(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(milliseconds: 1200),
+                        curve: Curves.elasticOut,
+                        builder: (context, value, child) {
+                          return Transform.scale(
+                            scale: value,
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.1),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                  width: 1.0, // Made thinner
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.person_outline,
+                                size: isTablet ? 100 : 80,
+                                color: Colors.white.withOpacity(0.9),
+                                weight: 300, // Made lighter
+                              ),
+                            ),
+                          );
                         },
                       ),
                     ),
-                    validator:
-                        (value) =>
-                            value!.isEmpty
-                                ? "Password tidak boleh kosong"
-                                : null,
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Animated Form section
+          Expanded(
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: Container(
+                width: double.infinity,
+                constraints: BoxConstraints(
+                  maxWidth: isTablet ? 500 : double.infinity,
+                ),
+                margin:
+                    isTablet
+                        ? const EdgeInsets.symmetric(horizontal: 50)
+                        : EdgeInsets.zero,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(isTablet ? 40 : 30),
+                    topRight: Radius.circular(isTablet ? 40 : 30),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, -10),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(isTablet ? 40.0 : 32.0),
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: isTablet ? 32 : 24),
+
+                          // Login Title with animation
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 800),
+                            curve: Curves.easeOut,
+                            builder: (context, value, child) {
+                              return Transform.translate(
+                                offset: Offset(0, 20 * (1 - value)),
+                                child: Opacity(
+                                  opacity: value,
+                                  child: Center(
+                                    child: Text(
+                                      "Masuk",
+                                      style: TextStyle(
+                                        fontSize: isTablet ? 32 : 28,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF0C1A3E),
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          SizedBox(height: isTablet ? 40 : 32),
+
+                          // Email Field
+                          _buildAnimatedTextField(
+                            label: "E-mail",
+                            controller: _emailController,
+                            focusNode: _emailFocus,
+                            keyboardType: TextInputType.emailAddress,
+                            prefixIcon: Icons.email_outlined,
+                            delay: 200,
+                            onFieldSubmitted:
+                                (_) => _passwordFocus.requestFocus(),
+                          ),
+
+                          // Password Field
+                          _buildAnimatedTextField(
+                            label: "Kata Sandi",
+                            controller: _passwordController,
+                            focusNode: _passwordFocus,
+                            obscureText: _obscureText,
+                            prefixIcon: Icons.lock_outline,
+                            delay: 400,
+                            suffixIcon: IconButton(
+                              icon: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: Icon(
+                                  _obscureText
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  key: ValueKey(_obscureText),
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _obscureText = !_obscureText);
+                              },
+                            ),
+                            onFieldSubmitted: (_) => _login(),
+                          ),
+
+                          // Remember Me & Forgot Password Row
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 600),
+                            curve: Curves.easeOut,
+                            builder: (context, value, child) {
+                              return Transform.translate(
+                                offset: Offset(0, 20 * (1 - value)),
+                                child: Opacity(
+                                  opacity: value,
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      // Remember Me
+                                      Row(
+                                        children: [
+                                          Transform.scale(
+                                            scale: 0.9,
+                                            child: Checkbox(
+                                              value: _rememberMe,
+                                              onChanged: (value) {
+                                                HapticFeedback.selectionClick();
+                                                setState(
+                                                  () =>
+                                                      _rememberMe =
+                                                          value ?? false,
+                                                );
+                                              },
+                                              activeColor: const Color(
+                                                0xFF0C1A3E,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            "Ingat saya",
+                                            style: TextStyle(
+                                              color: Colors.grey.shade700,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      // Forgot Password
+                                      TextButton(
+                                        onPressed: () {
+                                          HapticFeedback.selectionClick();
+                                          // Handle forgot password
+                                        },
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          "Lupa Kata Sandi?",
+                                          style: TextStyle(
+                                            color: const Color(0xFF0C1A3E),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          SizedBox(height: isTablet ? 32 : 24),
+
+                          // Login Button with animation
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 800),
+                            curve: Curves.easeOut,
+                            builder: (context, value, child) {
+                              return Transform.translate(
+                                offset: Offset(0, 30 * (1 - value)),
+                                child: Opacity(
+                                  opacity: value,
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    height: isTablet ? 56 : 50,
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
+                                      child: ElevatedButton(
+                                        onPressed: _isLoading ? null : _login,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(
+                                            0xFF0C1A3E,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          elevation: _isLoading ? 0 : 8,
+                                          shadowColor: const Color(
+                                            0xFF0C1A3E,
+                                          ).withOpacity(0.3),
+                                        ),
+                                        child: AnimatedSwitcher(
+                                          duration: const Duration(
+                                            milliseconds: 200,
+                                          ),
+                                          child:
+                                              _isLoading
+                                                  ? const SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          color: Colors.white,
+                                                          strokeWidth: 2,
+                                                        ),
+                                                  )
+                                                  : Text(
+                                                    "Masuk",
+                                                    style: TextStyle(
+                                                      fontSize:
+                                                          isTablet ? 18 : 16,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      letterSpacing: 1.1,
+                                                    ),
+                                                  ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          SizedBox(height: isTablet ? 40 : 32),
+
+                          // Sign up link with animation
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 1000),
+                            curve: Curves.easeOut,
+                            builder: (context, value, child) {
+                              return Transform.translate(
+                                offset: Offset(0, 20 * (1 - value)),
+                                child: Opacity(
+                                  opacity: value,
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          "Belum punya akun? ",
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: isTablet ? 16 : 14,
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            HapticFeedback.selectionClick();
+                                            Navigator.push(
+                                              context,
+                                              PageRouteBuilder(
+                                                pageBuilder:
+                                                    (
+                                                      context,
+                                                      animation,
+                                                      secondaryAnimation,
+                                                    ) => const RegisPage(),
+                                                transitionDuration:
+                                                    const Duration(
+                                                      milliseconds: 500,
+                                                    ),
+                                                transitionsBuilder: (
+                                                  context,
+                                                  animation,
+                                                  secondaryAnimation,
+                                                  child,
+                                                ) {
+                                                  return SlideTransition(
+                                                    position: Tween<Offset>(
+                                                      begin: const Offset(
+                                                        1.0,
+                                                        0.0,
+                                                      ),
+                                                      end: Offset.zero,
+                                                    ).animate(
+                                                      CurvedAnimation(
+                                                        parent: animation,
+                                                        curve:
+                                                            Curves
+                                                                .easeInOutCubic,
+                                                      ),
+                                                    ),
+                                                    child: child,
+                                                  );
+                                                },
+                                              ),
+                                            );
+                                          },
+                                          style: TextButton.styleFrom(
+                                            padding: EdgeInsets.zero,
+                                            minimumSize: Size.zero,
+                                            tapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                          ),
+                                          child: Text(
+                                            "Daftar",
+                                            style: TextStyle(
+                                              color: const Color(0xFF0C1A3E),
+                                              fontSize: isTablet ? 16 : 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          SizedBox(height: isTablet ? 32 : 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnimatedTextField({
+    required String label,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    TextInputType? keyboardType,
+    IconData? prefixIcon,
+    int delay = 0,
+    Function(String)? onFieldSubmitted,
+  }) {
+    final isTablet = MediaQuery.of(context).size.width > 600;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 600 + delay),
+      curve: Curves.easeOut,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, 30 * (1 - value)),
+          child: Opacity(
+            opacity: value,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isTablet ? 24.0 : 20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: isTablet ? 18 : 16,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF0C1A3E),
+                    ),
                   ),
                   const SizedBox(height: 8),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {},
-                      child: const Text(
-                        "Lupa password?",
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Sign In Button
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF052659),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                    ),
-                    child:
-                        _isLoading
-                            ? const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
-                            : const Text("Masuk"),
-                  ),
-                  const SizedBox(height: 20),
-
-                  const Text("Atau Masuk Dengan"),
-                  const SizedBox(height: 16),
-
-                  // Social Icons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _socialIcon("assets/google.png"),
-                      const SizedBox(width: 20),
-                      _socialIcon("assets/facebook.png"),
-                      const SizedBox(width: 20),
-                      _socialIcon("assets/apple.png"),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Sign up
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RegisPage(),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    child: TextFormField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      obscureText: obscureText,
+                      keyboardType: keyboardType,
+                      onFieldSubmitted: onFieldSubmitted,
+                      style: TextStyle(fontSize: isTablet ? 16 : 14),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Field ini wajib diisi';
+                        }
+                        if (keyboardType == TextInputType.emailAddress) {
+                          if (!RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          ).hasMatch(value)) {
+                            return 'Format email tidak valid';
+                          }
+                        }
+                        return null;
+                      },
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor:
+                            focusNode.hasFocus
+                                ? const Color(0xFFF0F4FF)
+                                : const Color(0xFFF9FAFB),
+                        prefixIcon:
+                            prefixIcon != null
+                                ? Icon(
+                                  prefixIcon,
+                                  color:
+                                      focusNode.hasFocus
+                                          ? const Color(0xFF0C1A3E)
+                                          : Colors.grey.shade500,
+                                  size: isTablet ? 24 : 20,
+                                )
+                                : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
-                      );
-                    },
-                    child: RichText(
-                      text: const TextSpan(
-                        text: "Belum memiliki akun? ",
-                        style: TextStyle(color: Colors.black),
-                        children: [
-                          TextSpan(
-                            text: "Daftar",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF052659),
-                            ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF0C1A3E),
+                            width: 2,
                           ),
-                        ],
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.red),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Colors.red,
+                            width: 2,
+                          ),
+                        ),
+                        suffixIcon: suffixIcon,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: isTablet ? 20 : 16,
+                        ),
                       ),
                     ),
                   ),
@@ -253,22 +787,8 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _socialIcon(String path) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: const BoxDecoration(
-          color: Color(0xFFF5F5F5),
-          shape: BoxShape.circle,
-        ),
-        child: Image.asset(path, width: 24, height: 24),
-      ),
+        );
+      },
     );
   }
 }
