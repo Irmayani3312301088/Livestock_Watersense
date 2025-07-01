@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '/models/notification_item.dart';
+import 'mqtt_service.dart';
+import 'package:mqtt_client/mqtt_client.dart';
 
 class ApiService {
   static const String baseUrl = 'http://10.0.2.2:5000/api';
@@ -145,32 +148,33 @@ class ApiService {
     }
   }
 
-  // UPDATED: Create user by admin - sesuai dengan backend yang sudah ada
+  // UPDATED: Create user by admin
   static Future<Map<String, dynamic>> createUser({
     required String name,
     String? username,
     required String email,
-    String role = 'pengguna',
+    required String password,
+    String role = '',
     File? profileImage,
   }) async {
     try {
       var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/users'));
 
-      // Add headers with authentication
+      // Header otentikasi
       String? token = await getToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      // Add fields - sesuai dengan backend controller
+      // Field data
       request.fields['name'] = name;
       request.fields['email'] = email;
+      request.fields['password'] = password; // ← ini bagian penting
       request.fields['role'] = role;
       if (username != null && username.isNotEmpty) {
         request.fields['username'] = username;
       }
 
-      // Add file if exists - sesuai dengan multer config di backend (profile_image)
       if (profileImage != null) {
         request.files.add(
           await http.MultipartFile.fromPath('profile_image', profileImage.path),
@@ -179,10 +183,8 @@ class ApiService {
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-
       final data = json.decode(response.body);
 
-      // Debug logging
       print('Create User Response Status: ${response.statusCode}');
       print('Create User Response Body: ${response.body}');
 
@@ -381,7 +383,7 @@ class ApiService {
     }
   }
 
-  //  Hapus Foto
+  //  Delete photo
   static Future<Map<String, dynamic>> deleteProfilePhoto() async {
     try {
       final token = await getToken();
@@ -389,9 +391,18 @@ class ApiService {
         Uri.parse('$baseUrl/profile/photo'),
         headers: {
           'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
       );
+
+      if (!response.headers['content-type']!.contains('application/json')) {
+        print("Respon bukan JSON:\n${response.body}");
+        return {
+          'success': false,
+          'message': 'Respon bukan JSON: ${response.body}',
+        };
+      }
 
       return json.decode(response.body);
     } catch (e) {
@@ -467,5 +478,159 @@ class ApiService {
       throw Exception('Gagal ambil data penggunaan air hari ini');
     }
   }
-  
+
+  // notification
+  static Future<List<NotificationItem>> getAllNotifications() async {
+    final response = await http.get(Uri.parse('$baseUrl/notifications'));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => NotificationItem.fromJson(json)).toList();
+    } else {
+      throw Exception('Gagal mengambil notifikasi');
+    }
+  }
+
+  static Future<void> sendNotification({
+    required String title,
+    required String message,
+    required String type,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/notifications'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'title': title, 'message': message, 'type': type}),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception('Gagal mengirim notifikasi');
+    }
+  }
+
+  static Future<void> deleteAllNotifications() async {
+    final response = await http.delete(Uri.parse('$baseUrl/notifications'));
+    if (response.statusCode != 200) {
+      throw Exception('Gagal menghapus semua notifikasi');
+    }
+  }
+
+  static Future<void> markAllNotificationsAsRead() async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/notifications/read-all'),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Gagal menandai semua notifikasi');
+    }
+  }
+
+  // Batas Air
+  static Future<Map<String, dynamic>?> fetchBatasAir(int deviceId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/batas-air/$deviceId'),
+        headers: await getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        print('Gagal fetch batas air: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error fetchBatasAir: $e');
+      return null;
+    }
+  }
+
+  static Future<bool> updateBatasAir({
+    required int deviceId,
+    required double batasAtas,
+    required double batasBawah,
+  }) async {
+    try {
+      print('[DEBUG] Kirim batas air:');
+      print('deviceId: $deviceId');
+      print('batasAtas: $batasAtas');
+      print('batasBawah: $batasBawah');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/batas-air'),
+        headers: await getHeaders(),
+        body: jsonEncode({
+          'device_id': deviceId,
+          'batas_atas': batasAtas,
+          'batas_bawah': batasBawah,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('[DEBUG] Berhasil update batas air.');
+        return true;
+      } else {
+        print('[ERROR] Gagal update batas air. Status: ${response.statusCode}');
+        print('[ERROR] Body: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('[ERROR] Exception saat update batas air: $e');
+      return false;
+    }
+  }
+
+  // Manual Pump
+  Future<String> getStatusPompa() async {
+    final response = await http.get(Uri.parse('$baseUrl/status-pompa'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['status'];
+    } else {
+      throw Exception('Gagal ambil status');
+    }
+  }
+
+  Future<bool> ubahStatusPompa(String status) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/ubah-status-pompa'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'status': status}),
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> kirimKonfirmasi({
+    required String levelAir,
+    required String batasKetinggian,
+    required String batasRendah,
+    required String statusPompa,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/manual-pump'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'level_air': levelAir,
+        'batas_ketinggian': batasKetinggian,
+        'batas_rendah': batasRendah,
+        'status_pompa': statusPompa,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
+  // mqtt
+  Future<void> sendToMQTT({
+    required String topic,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      final mqttService = MQTTService();
+      if (mqttService.client?.connectionStatus?.state !=
+          MqttConnectionState.connected) {
+        await mqttService.connect();
+      }
+      await mqttService.publish(topic, json.encode(data));
+    } catch (e) {
+      print('Error sending to MQTT: $e');
+      throw Exception('Failed to send MQTT message: $e');
+    }
+  }
 }

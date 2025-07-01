@@ -356,7 +356,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                       ),
                     ),
 
-                    // Title - adjust position for status bar
+                    // Title 
                     Center(
                       child: Padding(
                         padding: EdgeInsets.only(

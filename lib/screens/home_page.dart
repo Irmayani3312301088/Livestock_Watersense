@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'riwayat_page.dart';
 import 'notifikasi_page.dart';
 import 'user_management/user_list_page.dart';
 import 'profile.dart';
+import 'kustom_batas_air_page.dart';
 import '../services/api_service.dart';
+import '../services/mqtt_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -32,6 +35,10 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
   String? userName;
 
+  // mqtt
+  late MQTTService _mqttService;
+  Map<String, dynamic>? _livestockData;
+
   final List<Widget> _pages = [
     const DashboardPage(),
     const RiwayatPage(),
@@ -42,7 +49,29 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _mqttService = MQTTService();
+    _initMQTT();
     _loadUserProfile();
+  }
+
+  @override
+  void dispose() {
+    _mqttService.disconnect();
+    super.dispose();
+  }
+
+  // mqtt
+  Future<void> _initMQTT() async {
+    try {
+      await _mqttService.connect();
+      _mqttService.livestockDataStream.listen((data) {
+        if (mounted) {
+          setState(() => _livestockData = data);
+        }
+      });
+    } catch (e) {
+      print('MQTT Error: $e');
+    }
   }
 
   Future<void> _loadUserProfile() async {
@@ -91,58 +120,132 @@ class _HomePageState extends State<HomePage> {
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
 
+  // Helper method untuk responsive breakpoints
+  DeviceType _getDeviceType(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth < 360) return DeviceType.small;
+    if (screenWidth < 600) return DeviceType.medium;
+    if (screenWidth < 1024) return DeviceType.large;
+    return DeviceType.extraLarge;
+  }
+
+  // Helper method untuk responsive padding
+  EdgeInsets _getResponsivePadding(DeviceType deviceType) {
+    switch (deviceType) {
+      case DeviceType.small:
+        return const EdgeInsets.symmetric(horizontal: 12, vertical: 16);
+      case DeviceType.medium:
+        return const EdgeInsets.symmetric(horizontal: 16, vertical: 20);
+      case DeviceType.large:
+        return const EdgeInsets.symmetric(horizontal: 24, vertical: 24);
+      case DeviceType.extraLarge:
+        return const EdgeInsets.symmetric(horizontal: 32, vertical: 28);
+    }
+  }
+
+  // Helper method untuk responsive text size
+  double _getResponsiveFontSize(DeviceType deviceType, TextSizeType type) {
+    switch (type) {
+      case TextSizeType.title:
+        switch (deviceType) {
+          case DeviceType.small:
+            return 20;
+          case DeviceType.medium:
+            return 24;
+          case DeviceType.large:
+            return 28;
+          case DeviceType.extraLarge:
+            return 32;
+        }
+      case TextSizeType.subtitle:
+        switch (deviceType) {
+          case DeviceType.small:
+            return 16;
+          case DeviceType.medium:
+            return 18;
+          case DeviceType.large:
+            return 20;
+          case DeviceType.extraLarge:
+            return 22;
+        }
+      case TextSizeType.body:
+        switch (deviceType) {
+          case DeviceType.small:
+            return 12;
+          case DeviceType.medium:
+            return 14;
+          case DeviceType.large:
+            return 16;
+          case DeviceType.extraLarge:
+            return 18;
+        }
+      case TextSizeType.caption:
+        switch (deviceType) {
+          case DeviceType.small:
+            return 10;
+          case DeviceType.medium:
+            return 12;
+          case DeviceType.large:
+            return 14;
+          case DeviceType.extraLarge:
+            return 16;
+        }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final deviceType = _getDeviceType(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 400;
+    final isTablet = screenWidth >= 600;
+
+    final double logoSize =
+        deviceType == DeviceType.small
+            ? 60
+            : (deviceType == DeviceType.medium ? 75 : 90);
+
+    final double avatarSize =
+        deviceType == DeviceType.small
+            ? 22
+            : (deviceType == DeviceType.medium ? 26 : 30);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: _getResponsivePadding(deviceType),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header dengan logo dan profile
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Image.asset(
-                'assets/logo.png',
-                width: isSmallScreen ? 70 : 90,
-                height: isSmallScreen ? 65 : 85,
+              // Logo dengan ukuran lebih besar dan stabil
+              Container(
+                width: logoSize,
+                height: logoSize,
+                decoration: const BoxDecoration(shape: BoxShape.circle),
+                clipBehavior: Clip.antiAlias,
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: Image.asset('assets/logo.png'),
+                ),
               ),
-              FutureBuilder<Map<String, dynamic>>(
-                future: ApiService.getProfile(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.grey,
-                    );
-                  }
 
-                  if (snapshot.hasData &&
-                      snapshot.data != null &&
-                      snapshot.data!['success'] == true) {
-                    final profileData = snapshot.data!['data'];
-                    final photoUrl = profileData['photo'];
-
-                    if (photoUrl != null && photoUrl.isNotEmpty) {
-                      return CircleAvatar(
-                        radius: 20,
-                        backgroundImage: NetworkImage(photoUrl),
-                      );
-                    }
-                  }
-
-                  return const CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.grey,
-                    child: Icon(Icons.person, color: Colors.white),
-                  );
-                },
+              // Avatar dengan ukuran disesuaikan
+              CircleAvatar(
+                radius: avatarSize,
+                backgroundColor: Colors.grey,
+                child: Icon(
+                  Icons.person,
+                  color: Colors.white,
+                  size: avatarSize * 0.8,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+
+          SizedBox(height: deviceType == DeviceType.small ? 12 : 16),
+
+          // Greeting
           FutureBuilder<Map<String, dynamic>>(
             future: ApiService.getProfile(),
             builder: (context, snapshot) {
@@ -155,26 +258,42 @@ class DashboardPage extends StatelessWidget {
               }
               return Row(
                 children: [
-                  Text(
-                    "Halo $name",
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      "Halo $name",
+                      style: TextStyle(
+                        fontSize: _getResponsiveFontSize(
+                          deviceType,
+                          TextSizeType.title,
+                        ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.waving_hand, color: Colors.amber, size: 28),
+                  Icon(
+                    Icons.waving_hand,
+                    color: Colors.amber,
+                    size:
+                        _getResponsiveFontSize(deviceType, TextSizeType.title) +
+                        4,
+                  ),
                 ],
               );
             },
           ),
-          const SizedBox(height: 16),
+
+          SizedBox(height: deviceType == DeviceType.small ? 12 : 16),
+
+          // Temperature Card
           FutureBuilder<Map<String, dynamic>>(
             future: ApiService.getLatestTemperature(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(
+                    deviceType == DeviceType.small ? 12 : 16,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue[50],
                     borderRadius: BorderRadius.circular(16),
@@ -185,12 +304,22 @@ class DashboardPage extends StatelessWidget {
 
               if (snapshot.hasError || !snapshot.hasData) {
                 return Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(
+                    deviceType == DeviceType.small ? 12 : 16,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red[100],
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Text("Gagal memuat data suhu"),
+                  child: Text(
+                    "Gagal memuat data suhu",
+                    style: TextStyle(
+                      fontSize: _getResponsiveFontSize(
+                        deviceType,
+                        TextSizeType.body,
+                      ),
+                    ),
+                  ),
                 );
               }
 
@@ -198,271 +327,535 @@ class DashboardPage extends StatelessWidget {
               final note = snapshot.data!['note'] ?? '-';
 
               return Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(
+                  deviceType == DeviceType.small ? 12 : 16,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.blue[50],
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Suhu sekitar kandang",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                child:
+                    isTablet
+                        ?
+                        // Tablet layout - horizontal
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Suhu sekitar kandang",
+                                    style: TextStyle(
+                                      fontSize: _getResponsiveFontSize(
+                                        deviceType,
+                                        TextSizeType.subtitle,
+                                      ),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    note,
+                                    style: TextStyle(
+                                      fontSize: _getResponsiveFontSize(
+                                        deviceType,
+                                        TextSizeType.body,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 20,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                "$suhu°C",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: _getResponsiveFontSize(
+                                    deviceType,
+                                    TextSizeType.title,
+                                  ),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                        :
+                        // Mobile layout - horizontal with centered alignment
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Suhu sekitar kandang",
+                                    style: TextStyle(
+                                      fontSize: _getResponsiveFontSize(
+                                        deviceType,
+                                        TextSizeType.subtitle,
+                                      ),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    note,
+                                    style: TextStyle(
+                                      fontSize: _getResponsiveFontSize(
+                                        deviceType,
+                                        TextSizeType.body,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: 18,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                "$suhu°C",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: _getResponsiveFontSize(
+                                    deviceType,
+                                    TextSizeType.subtitle,
+                                  ),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(note, style: const TextStyle(fontSize: 14)),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        "$suhu°C",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               );
             },
           ),
 
-          const SizedBox(height: 24),
-          const Text(
+          SizedBox(height: deviceType == DeviceType.small ? 16 : 24),
+
+          // Menu Utama
+          Text(
             "Menu Utama",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: _getResponsiveFontSize(
+                deviceType,
+                TextSizeType.subtitle,
+              ),
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(height: 12),
-          Column(
-            children: [
-              buildMenuItem(
-                context,
-                icon: Icons.manage_accounts,
-                title: "Manajemen Pengguna",
-                color: const Color.fromARGB(255, 2, 50, 88),
-                onTap: () {
-                  Navigator.push(
+
+          SizedBox(height: deviceType == DeviceType.small ? 8 : 12),
+
+          // Menu items - Grid layout untuk tablet
+          isTablet
+              ? GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 3.5,
+                children: [
+                  buildMenuItem(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const UserListPage(),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 12),
-              FutureBuilder<Map<String, dynamic>>(
-                future: ApiService.getLatestWaterLevel(),
-                builder: (context, snapshot) {
-                  String levelStatus = 'Memuat...';
-
-                  if (snapshot.connectionState == ConnectionState.done &&
-                      snapshot.hasData &&
-                      snapshot.data != null) {
-                    levelStatus = snapshot.data!['status'] ?? '-';
-                  }
-
-                  return buildMenuItem(
+                    deviceType: deviceType,
+                    icon: Icons.manage_accounts,
+                    title: "Manajemen Pengguna",
+                    color: const Color.fromARGB(255, 2, 50, 88),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const UserListPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: ApiService.getLatestWaterLevel(),
+                    builder: (context, snapshot) {
+                      String levelStatus = 'Memuat...';
+                      if (snapshot.connectionState == ConnectionState.done &&
+                          snapshot.hasData &&
+                          snapshot.data != null) {
+                        levelStatus = snapshot.data!['status'] ?? '-';
+                      }
+                      return buildMenuItem(
+                        context,
+                        deviceType: deviceType,
+                        icon: Icons.water_drop,
+                        title: "Level Air",
+                        color: Colors.blue,
+                        status: levelStatus,
+                      );
+                    },
+                  ),
+                  buildMenuItem(
                     context,
-                    icon: Icons.water_drop,
-                    title: "Level Air",
-                    color: Colors.blue,
-                    status: levelStatus,
-                  );
-                },
+                    deviceType: deviceType,
+                    icon: Icons.settings,
+                    title: "Kustom Batas Air",
+                    color: Colors.teal,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => KustomBatasAirPage(deviceId: 1),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              )
+              :
+              // Column layout untuk mobile
+              Column(
+                children: [
+                  buildMenuItem(
+                    context,
+                    deviceType: deviceType,
+                    icon: Icons.manage_accounts,
+                    title: "Manajemen Pengguna",
+                    color: const Color.fromARGB(255, 2, 50, 88),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const UserListPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: ApiService.getLatestWaterLevel(),
+                    builder: (context, snapshot) {
+                      String levelStatus = 'Memuat...';
+                      if (snapshot.connectionState == ConnectionState.done &&
+                          snapshot.hasData &&
+                          snapshot.data != null) {
+                        levelStatus = snapshot.data!['status'] ?? '-';
+                      }
+                      return buildMenuItem(
+                        context,
+                        deviceType: deviceType,
+                        icon: Icons.water_drop,
+                        title: "Level Air",
+                        color: Colors.blue,
+                        status: levelStatus,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  buildMenuItem(
+                    context,
+                    deviceType: deviceType,
+                    icon: Icons.settings,
+                    title: "Kustom Batas Air",
+                    color: Colors.teal,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => KustomBatasAirPage(deviceId: 1),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
 
-              const SizedBox(height: 12),
-              buildMenuItem(
-                context,
-                icon: Icons.settings,
-                title: "Kustom Batas Air",
-                color: Colors.teal,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
+          SizedBox(height: deviceType == DeviceType.small ? 16 : 24),
+
+          // Laporan Real-time
+          Text(
             "Laporan Real-time",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: FutureBuilder<double>(
-              future: ApiService.getTodayWaterUsage(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Text("Memuat...");
-                }
-
-                if (snapshot.hasError || !snapshot.hasData) {
-                  return const Text("Gagal memuat");
-                }
-
-                final usage = snapshot.data!;
-                final formattedUsage = usage
-                    .toStringAsFixed(0)
-                    .replaceAllMapped(
-                      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                      (Match m) => '${m[1]}.',
-                    );
-
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 6,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.water_drop, color: Colors.blue, size: 28),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Penggunaan air",
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "$formattedUsage ml",
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
+            style: TextStyle(
+              fontSize: _getResponsiveFontSize(
+                deviceType,
+                TextSizeType.subtitle,
+              ),
+              fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 12),
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: FutureBuilder<Map<String, dynamic>>(
-              future: ApiService.getLatestPumpStatus(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const ListTile(title: Text("Memuat status pompa..."));
-                }
 
-                if (snapshot.hasError || !snapshot.hasData) {
-                  return const ListTile(
-                    title: Text("Gagal ambil status pompa"),
-                  );
-                }
+          SizedBox(height: deviceType == DeviceType.small ? 12 : 16),
 
-                final data = snapshot.data!;
-                final status = data['status'] == 'on' ? 'Hidup' : 'Mati';
-                final mode = data['mode'] == 'auto' ? 'Otomatis' : 'Manual';
-
-                final iconColor = status == 'Hidup' ? Colors.green : Colors.red;
-
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 6,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.power, color: iconColor, size: 28),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Status pompa: $status",
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Mode: $mode",
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+          // Real-time cards - Grid untuk tablet
+          isTablet
+              ? GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 2.5,
+                children: [
+                  _buildWaterUsageCard(deviceType),
+                  _buildPumpStatusCard(deviceType),
+                ],
+              )
+              : Column(
+                children: [
+                  _buildWaterUsageCard(deviceType),
+                  const SizedBox(height: 12),
+                  _buildPumpStatusCard(deviceType),
+                ],
+              ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWaterUsageCard(DeviceType deviceType) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: FutureBuilder<double>(
+        future: ApiService.getTodayWaterUsage(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Padding(
+              padding: EdgeInsets.all(deviceType == DeviceType.small ? 12 : 16),
+              child: Text(
+                "Memuat...",
+                style: TextStyle(
+                  fontSize: _getResponsiveFontSize(
+                    deviceType,
+                    TextSizeType.body,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          if (snapshot.hasError || !snapshot.hasData) {
+            return Padding(
+              padding: EdgeInsets.all(deviceType == DeviceType.small ? 12 : 16),
+              child: Text(
+                "Gagal memuat data air hari ini",
+                style: TextStyle(
+                  fontSize: _getResponsiveFontSize(
+                    deviceType,
+                    TextSizeType.body,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          final usageMl = snapshot.data!;
+          final usageLiter = usageMl / 1000;
+
+          final formatter = NumberFormat("#,##0.000", "en_US");
+          final formattedUsage = formatter.format(usageLiter);
+
+          return Container(
+            padding: EdgeInsets.all(deviceType == DeviceType.small ? 12 : 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.water_drop,
+                  color: Colors.blue,
+                  size: _getResponsiveFontSize(deviceType, TextSizeType.title),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Penggunaan air",
+                        style: TextStyle(
+                          fontSize: _getResponsiveFontSize(
+                            deviceType,
+                            TextSizeType.subtitle,
+                          ),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "$formattedUsage L",
+                        style: TextStyle(
+                          fontSize: _getResponsiveFontSize(
+                            deviceType,
+                            TextSizeType.body,
+                          ),
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPumpStatusCard(DeviceType deviceType) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: FutureBuilder<Map<String, dynamic>>(
+        future: ApiService.getLatestPumpStatus(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Padding(
+              padding: EdgeInsets.all(deviceType == DeviceType.small ? 12 : 16),
+              child: Text(
+                "Memuat status pompa...",
+                style: TextStyle(
+                  fontSize: _getResponsiveFontSize(
+                    deviceType,
+                    TextSizeType.body,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          if (snapshot.hasError || !snapshot.hasData) {
+            return Padding(
+              padding: EdgeInsets.all(deviceType == DeviceType.small ? 12 : 16),
+              child: Text(
+                "Gagal ambil status pompa",
+                style: TextStyle(
+                  fontSize: _getResponsiveFontSize(
+                    deviceType,
+                    TextSizeType.body,
+                  ),
+                ),
+              ),
+            );
+          }
+
+          final data = snapshot.data!;
+          final status = data['status'] == 'on' ? 'Hidup' : 'Mati';
+          final mode = data['mode'] == 'auto' ? 'Otomatis' : 'Manual';
+
+          final iconColor = status == 'Hidup' ? Colors.green : Colors.red;
+
+          return Container(
+            padding: EdgeInsets.all(deviceType == DeviceType.small ? 12 : 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.power,
+                  color: iconColor,
+                  size: _getResponsiveFontSize(deviceType, TextSizeType.title),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Status pompa: $status",
+                        style: TextStyle(
+                          fontSize: _getResponsiveFontSize(
+                            deviceType,
+                            TextSizeType.subtitle,
+                          ),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Mode: $mode",
+                        style: TextStyle(
+                          fontSize: _getResponsiveFontSize(
+                            deviceType,
+                            TextSizeType.body,
+                          ),
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget buildMenuItem(
     BuildContext context, {
+    required DeviceType deviceType,
     required IconData icon,
     required String title,
     required Color color,
     String? status,
     VoidCallback? onTap,
   }) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double fontSize = screenWidth < 400 ? 12 : 14;
-    double containerHeight = screenWidth < 400 ? 65 : 75;
+    double containerHeight =
+        deviceType == DeviceType.small
+            ? 60
+            : deviceType == DeviceType.medium
+            ? 70
+            : 80;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         height: containerHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: deviceType == DeviceType.small ? 12 : 16,
+          vertical: 8,
+        ),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(12),
@@ -470,7 +863,11 @@ class DashboardPage extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 24),
+            Icon(
+              icon,
+              color: Colors.white,
+              size: _getResponsiveFontSize(deviceType, TextSizeType.title),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -482,7 +879,10 @@ class DashboardPage extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: fontSize,
+                      fontSize: _getResponsiveFontSize(
+                        deviceType,
+                        TextSizeType.body,
+                      ),
                     ),
                   ),
                   if (status != null)
@@ -490,7 +890,10 @@ class DashboardPage extends StatelessWidget {
                       status,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: fontSize - 1,
+                        fontSize: _getResponsiveFontSize(
+                          deviceType,
+                          TextSizeType.caption,
+                        ),
                       ),
                     ),
                 ],
@@ -502,3 +905,8 @@ class DashboardPage extends StatelessWidget {
     );
   }
 }
+
+// Enums untuk responsive design
+enum DeviceType { small, medium, large, extraLarge }
+
+enum TextSizeType { title, subtitle, body, caption }

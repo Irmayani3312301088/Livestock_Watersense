@@ -4,20 +4,18 @@ const WaterUsage = require('../models/waterUsageModel');
 
 exports.getTodayUsage = async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
 
-    const result = await WaterUsage.findOne({
-      attributes: [
-        [sequelize.fn('SUM', sequelize.col('usage_ml')), 'total_usage']
-      ],
-      where: {
-        date: {
-          [Op.eq]: today
-        }
-      }
-    });
+    const today = new Date().toLocaleDateString('en-CA'); 
 
-    const total = result?.dataValues?.total_usage ?? 0;
+    const result = await WaterUsage.findAll({
+  attributes: [
+    [sequelize.fn('SUM', sequelize.col('usage_ml')), 'total_usage']
+  ],
+  where: { date: today },
+  raw: true
+});
+
+const total = result[0]?.total_usage ?? 0;
 
     res.status(200).json({ today_usage: total });
   } catch (err) {
@@ -32,9 +30,12 @@ exports.sendWaterUsage = async (req, res) => {
   const { device_id, usage_ml } = req.body;
 
   try {
+    const today = new Date().toISOString().split('T')[0];
+    
     await WaterUsage.create({
       device_id,
       usage_ml,
+      date: today,
     });
 
     res.status(201).json({ message: "Penggunaan air berhasil disimpan." });

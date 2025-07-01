@@ -141,9 +141,10 @@ class _SplashScreenState extends State<SplashScreen>
     // Responsive sizing
     double logoSize =
         isTablet
-            ? (isLandscape ? screenHeight * 0.3 : screenWidth * 0.4)
-            : screenWidth * 0.6;
-    logoSize = logoSize.clamp(200.0, 400.0);
+            ? (isLandscape ? screenHeight * 0.2 : screenWidth * 0.25)
+            : screenWidth * 0.35;
+
+    logoSize = logoSize.clamp(120.0, 250.0);
 
     double fontSize = isTablet ? 36.0 : 28.0;
     double progressBarWidth = screenWidth * (isTablet ? 0.5 : 0.7);
@@ -305,6 +306,6 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
       ),
-    );
+    ); 
   }
 }

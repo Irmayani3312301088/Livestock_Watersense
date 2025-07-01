@@ -12,6 +12,9 @@ const temperatureRoutes = require('./routes/temperatureRoutes');
 const waterLevelRoutes = require('./routes/waterLevelRoutes');
 const pumpRoutes = require('./routes/pumpRoutes');
 const waterUsageRoutes = require('./routes/waterUsageRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const batasAirRoutes = require('./routes/batasAirRoutes');
+const manualPumpRoutes = require('./routes/manualPumpRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,6 +31,10 @@ app.use('/api/temperature', temperatureRoutes);
 app.use('/api/water-level', waterLevelRoutes);
 app.use('/api/pump', pumpRoutes);
 app.use('/api/water-usage', waterUsageRoutes);
+app.use('/api', notificationRoutes);
+app.use('/api/batas-air', batasAirRoutes);
+app.use('/api', manualPumpRoutes);
+
 
 // Jalankan server
 (async () => {

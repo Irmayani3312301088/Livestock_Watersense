@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:Livestock_Watersense/screens/home_page.dart';
 import '../services/api_service.dart';
+import '../helpers/role_navigation_helper.dart';
 
 class RiwayatPage extends StatefulWidget {
   const RiwayatPage({Key? key}) : super(key: key);
@@ -44,28 +45,33 @@ class _RiwayatPageState extends State<RiwayatPage> {
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                'Riwayat Penggunaan Air',
-                style: pw.TextStyle(
-                  fontSize: 24,
-                  fontWeight: pw.FontWeight.bold,
+          return pw.Container(
+            color: PdfColors.white,
+            padding: const pw.EdgeInsets.all(20),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'Riwayat Penggunaan Air',
+                  style: pw.TextStyle(
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
-              ),
-              pw.SizedBox(height: 16),
-              pw.Table.fromTextArray(
-                headers: ['Tanggal', 'Penggunaan (ml)'],
-                data:
-                    data.map((item) {
-                      final tanggal = _formatTanggal(item['date'] ?? '-');
-                      final total =
-                          item['total_usage']?.toStringAsFixed(0) ?? '0';
-                      return [tanggal, total];
-                    }).toList(),
-              ),
-            ],
+                pw.SizedBox(height: 16),
+                pw.Table.fromTextArray(
+                  headers: ['Tanggal', 'Penggunaan (L)'],
+                  data:
+                      data.map((item) {
+                        final tanggal = _formatTanggal(item['date'] ?? '-');
+                        final usageMl = item['total_usage'] ?? 0;
+                        final usageLiter = usageMl / 1000;
+                        final total = usageLiter.toStringAsFixed(3);
+                        return [tanggal, total];
+                      }).toList(),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -104,94 +110,227 @@ class _RiwayatPageState extends State<RiwayatPage> {
     return namaBulan[bulan];
   }
 
+  // Helper method untuk menentukan breakpoint
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
+  }
+
+  bool _isLandscape(BuildContext context) {
+    return MediaQuery.of(context).orientation == Orientation.landscape;
+  }
+
+  // Method untuk mendapatkan padding responsif
+  EdgeInsets _getResponsivePadding(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = _isTablet(context);
+
+    if (isTablet) {
+      return EdgeInsets.symmetric(horizontal: screenWidth * 0.08, vertical: 24);
+    } else {
+      return EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: 20);
+    }
+  }
+
+  // Method untuk mendapatkan ukuran font responsif
+  double _getResponsiveFontSize(BuildContext context, double baseFontSize) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = _isTablet(context);
+
+    if (isTablet) {
+      return baseFontSize * 1.2;
+    } else if (screenWidth < 350) {
+      return baseFontSize * 0.9;
+    }
+    return baseFontSize;
+  }
+
+  // Method untuk mendapatkan spacing responsif
+  double _getResponsiveSpacing(BuildContext context, double baseSpacing) {
+    final isTablet = _isTablet(context);
+    return isTablet ? baseSpacing * 1.5 : baseSpacing;
+  }
+
+  // Method untuk mendapatkan grid count untuk layout tablet
+  int _getCrossAxisCount(BuildContext context) {
+    final isLandscape = _isLandscape(context);
+
+    if (_isTablet(context)) {
+      return isLandscape ? 3 : 2;
+    }
+    return 1; // Selalu 1 column untuk phone
+  }
+
+  Widget _buildRiwayatItem(BuildContext context, Map<String, dynamic> item) {
+    final tanggal = item["date"] ?? "-";
+    final usageMl = item["total_usage"] ?? 0;
+    final usageLiter = usageMl / 1000;
+    final jumlah = NumberFormat("#,##0.000", "en_US").format(usageLiter);
+
+    final isTablet = _isTablet(context);
+
+    return Container(
+      margin: EdgeInsets.only(bottom: _getResponsiveSpacing(context, 12)),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(_getResponsiveSpacing(context, 16)),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: EdgeInsets.symmetric(
+          vertical: _getResponsiveSpacing(context, 12),
+          horizontal: _getResponsiveSpacing(context, 16),
+        ),
+        leading: Container(
+          padding: EdgeInsets.all(_getResponsiveSpacing(context, 8)),
+          decoration: BoxDecoration(
+            color: Colors.blue,
+            borderRadius: BorderRadius.circular(
+              _getResponsiveSpacing(context, 12),
+            ),
+          ),
+          child: Icon(
+            Icons.calendar_today,
+            color: Colors.white,
+            size: isTablet ? 28 : 24,
+          ),
+        ),
+        title: Text(
+          _formatTanggal(tanggal),
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: _getResponsiveFontSize(context, 16),
+          ),
+        ),
+        subtitle: Text(
+          "$jumlah L",
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: _getResponsiveFontSize(context, 14),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_riwayatData.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.history,
+              size: _isTablet(context) ? 80 : 60,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: _getResponsiveSpacing(context, 16)),
+            Text(
+              "Tidak ada data riwayat.",
+              style: TextStyle(
+                fontSize: _getResponsiveFontSize(context, 16),
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final crossAxisCount = _getCrossAxisCount(context);
+
+    if (crossAxisCount > 1) {
+      // Grid layout untuk tablet
+      return GridView.builder(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: _getResponsiveSpacing(context, 16),
+          mainAxisSpacing: _getResponsiveSpacing(context, 16),
+          childAspectRatio: 2.5,
+        ),
+        itemCount: _riwayatData.length,
+        itemBuilder: (context, index) {
+          return _buildRiwayatItem(context, _riwayatData[index]);
+        },
+      );
+    } else {
+      // List layout untuk phone
+      return ListView.builder(
+        itemCount: _riwayatData.length,
+        itemBuilder: (context, index) {
+          return _buildRiwayatItem(context, _riwayatData[index]);
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isTablet = _isTablet(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Riwayat Penggunaan Air',
-          style: TextStyle(color: Colors.black),
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: _getResponsiveFontSize(context, 20),
+          ),
         ),
-        iconTheme: const IconThemeData(
-          color: Colors.black,
-        ), // ⬅️ warna ikon back
+        iconTheme: const IconThemeData(color: Colors.black),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, size: isTablet ? 28 : 24),
           onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const HomePage()),
-            );
+            RoleNavigationHelper.goToDashboard(context);
           },
         ),
-      ),
 
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-          child:
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _riwayatData.isEmpty
-                  ? const Center(child: Text("Tidak ada data riwayat."))
-                  : ListView.builder(
-                    itemCount: _riwayatData.length,
-                    itemBuilder: (context, index) {
-                      final item = _riwayatData[index];
-                      final tanggal = item["date"] ?? "-";
-                      final jumlah =
-                          item["total_usage"]?.toStringAsFixed(0) ?? "0";
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 6,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                            horizontal: 16,
-                          ),
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.blue,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.calendar_today,
-                              color: Colors.white,
-                            ),
-                          ),
-                          title: Text(
-                            _formatTanggal(tanggal),
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                          subtitle: Text(
-                            "$jumlah ml",
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ),
-                      );
+        // Tambahkan action untuk refresh di tablet
+        actions:
+            isTablet
+                ? [
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () {
+                      setState(() {
+                        _isLoading = true;
+                      });
+                      _fetchRiwayatData();
                     },
                   ),
+                  const SizedBox(width: 8),
+                ]
+                : null,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: _getResponsivePadding(context),
+          child: _buildContent(context),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => exportRiwayatToPdf(_riwayatData),
-        label: const Text('Ekspor PDF'),
-        icon: const Icon(Icons.picture_as_pdf),
+        onPressed:
+            _riwayatData.isNotEmpty
+                ? () => exportRiwayatToPdf(_riwayatData)
+                : null,
+        label: Text(
+          'Ekspor PDF',
+          style: TextStyle(fontSize: _getResponsiveFontSize(context, 14)),
+        ),
+        icon: Icon(Icons.picture_as_pdf, size: isTablet ? 24 : 20),
+        backgroundColor: _riwayatData.isNotEmpty ? null : Colors.grey,
       ),
     );
   }

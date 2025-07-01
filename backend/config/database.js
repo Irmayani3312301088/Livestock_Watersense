@@ -26,7 +26,7 @@ const sequelize = new Sequelize(
 async function testConnection() {
   try {
     await sequelize.authenticate();
-    console.log(' Koneksi database telah berhasil dibuat.');
+    console.log(' Koneksi database berhasil dibuat.');
     return true;
   } catch (error) {
     console.error(' Tidak dapat tersambung ke database:', error.message);

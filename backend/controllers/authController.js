@@ -169,7 +169,7 @@ const login = async (req, res) => {
     }
 
     console.log('Input password:', password);
-console.log('DB hashed password:', user.password);
+    console.log('DB hashed password:', user.password);
 
 const isMatch = await bcrypt.compare(password, user.password);
 console.log('Password match result:', isMatch);

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'user_add_page.dart';
 import 'user_edit_page.dart';
+import '../../utils/dialog_utils.dart';
 
 class UserListPage extends StatefulWidget {
   const UserListPage({Key? key}) : super(key: key);
@@ -26,6 +28,12 @@ class _UserListPageState extends State<UserListPage> {
   void initState() {
     super.initState();
     _fetchUsers();
+  }
+
+  // Fungsi untuk mendapatkan token auth
+  Future<String?> _getAuthToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
   }
 
   // Fungsi untuk mengambil data users dari backend
@@ -84,15 +92,6 @@ class _UserListPageState extends State<UserListPage> {
     }
   }
 
-  // Fungsi untuk mendapatkan token auth (implementasikan sesuai sistem auth Anda)
-  Future<String?> _getAuthToken() async {
-    // TODO: Implementasikan pengambilan token dari SharedPreferences atau secure storage
-    // Contoh implementasi:
-    // SharedPreferences prefs = await SharedPreferences.getInstance();
-    // return prefs.getString('auth_token');
-    return 'your-auth-token-here'; // Sementara hardcode
-  }
-
   void _addUser() async {
     final result = await Navigator.push(
       context,
@@ -125,19 +124,41 @@ class _UserListPageState extends State<UserListPage> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Konfirmasi Hapus'),
-            content: Text('Yakin ingin menghapus ${user['name']}?'),
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Konfirmasi Hapus',
+              style: TextStyle(color: Colors.black),
+            ),
+            content: Text(
+              'Yakin ingin menghapus ${user['name']}?',
+              style: TextStyle(color: Colors.black87),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Batal'),
+                child: const Text(
+                  'Batal',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
               TextButton(
                 onPressed: () async {
                   Navigator.pop(context);
                   await _performDelete(user['id']);
                 },
-                child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  'Hapus',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
@@ -160,13 +181,13 @@ class _UserListPageState extends State<UserListPage> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success']) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('User berhasil dihapus!'),
-              backgroundColor: Colors.redAccent,
-              duration: Duration(seconds: 2),
-            ),
+          showUserDeletedPopup(
+            context,
+            onDone: () {
+              _fetchUsers();
+            },
           );
+
           // Refresh data setelah hapus
           _fetchUsers();
         } else {
@@ -263,16 +284,6 @@ class _UserListPageState extends State<UserListPage> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: Colors.grey[400],
-              child: const Icon(Icons.person, color: Colors.white, size: 18),
-            ),
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -363,24 +374,31 @@ class _UserListPageState extends State<UserListPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Filter:', style: TextStyle(fontWeight: FontWeight.bold)),
-                DropdownButton<String>(
-                  value: selectedStatus,
-                  items: [
-                    DropdownMenuItem(value: 'all', child: Text('Semua')),
-                    DropdownMenuItem(value: 'active', child: Text('Aktif')),
-                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        selectedStatus = value;
-                        _filterUsers();
-                      });
-                    }
-                  },
+                Theme(
+                  data: Theme.of(context).copyWith(canvasColor: Colors.white),
+                  child: DropdownButton<String>(
+                    value: selectedStatus,
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('Semua')),
+                      DropdownMenuItem(value: 'active', child: Text('Aktif')),
+                      DropdownMenuItem(
+                        value: 'pending',
+                        child: Text('Pending'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          selectedStatus = value;
+                          _filterUsers();
+                        });
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
+
             const SizedBox(height: 12),
 
             // List User

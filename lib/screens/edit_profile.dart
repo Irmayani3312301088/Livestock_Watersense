@@ -16,8 +16,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _obscurePassword = true;
   bool _isLoading = false;
   File? _imageFile;
-  final ImagePicker _picker = ImagePicker();
-  String? _selectedRole = "Pengguna";
+
+  final List<Map<String, String>> roleOptions = [
+    {'label': 'User', 'value': 'user'},
+    {'label': 'Admin', 'value': 'admin'},
+  ];
+  String? _selectedRole = "user";
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
@@ -36,95 +40,214 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final response = await ApiService.getProfile();
     if (response['success'] == true) {
       final data = response['data'];
+      final roleFromAPI = (data['role'] ?? 'user').toString().toLowerCase();
+      final allowedRoles = ['user', 'admin'];
+
       setState(() {
         _nameController.text = data['name'] ?? '';
         _usernameController.text = data['username'] ?? '';
         _emailController.text = data['email'] ?? '';
-        _selectedRole = data['role'] ?? 'Pengguna';
+        _selectedRole =
+            allowedRoles.contains(roleFromAPI) ? roleFromAPI : 'user';
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Gagal memuat data profil: ${response['message']}"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackBar("Gagal memuat data profil: ${response['message']}");
     }
   }
 
-  Widget _containerProfileImage() {
-    return Container(
-      width: 90,
-      height: 90,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      child:
-          _imageFile != null
-              ? ClipOval(
-                child: Image.file(
-                  _imageFile!,
-                  width: 90,
-                  height: 90,
-                  fit: BoxFit.cover,
-                ),
-              )
-              : Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Colors.blue.shade100, Colors.blue.shade200],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(color: Colors.blue.shade300, width: 2),
-                ),
-                child: const Center(
-                  child: Icon(Icons.person, color: Colors.blue, size: 40),
-                ),
-              ),
     );
   }
 
+  Widget _containerProfileImage() {
+    return Stack(
+      children: [
+        Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFF3F4F6),
+            border: Border.all(color: const Color(0xFFD1D5DB), width: 3),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child:
+                _imageFile != null
+                    ? Image.file(
+                      _imageFile!,
+                      fit: BoxFit.cover,
+                      width: 120,
+                      height: 120,
+                    )
+                    : Icon(Icons.person, size: 60, color: Colors.grey.shade400),
+          ),
+        ),
+        // Icon kamera di kanan bawah
+        Positioned(
+          bottom: 8,
+          right: 8,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF0C1A3E),
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Method yang menampilkan modal bottom sheet
   Future<void> _pickImage() async {
     try {
-      final XFile? pickedImage = await _picker.pickImage(
-        source: ImageSource.gallery,
+      final source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder:
+            (context) => Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Handle bar di atas
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 12, bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    // Title "Pilih Sumber Gambar"
+                    const Text(
+                      'Pilih Sumber Gambar',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Row dengan 2 pilihan: Kamera dan Galeri
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildImageSourceOption(
+                          icon: Icons.camera_alt,
+                          label: 'Kamera',
+                          onTap:
+                              () => Navigator.pop(context, ImageSource.camera),
+                        ),
+                        _buildImageSourceOption(
+                          icon: Icons.photo_library,
+                          label: 'Galeri',
+                          onTap:
+                              () => Navigator.pop(context, ImageSource.gallery),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            ),
+      );
+
+      if (source == null) return;
+
+      final pickedFile = await ImagePicker().pickImage(
+        source: source,
         maxWidth: 800,
         maxHeight: 800,
-        imageQuality: 85,
+        imageQuality: 80,
       );
-      if (pickedImage != null) {
+
+      if (pickedFile != null) {
         setState(() {
-          _imageFile = File(pickedImage.path);
+          _imageFile = File(pickedFile.path);
         });
 
         // Show success feedback
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Foto berhasil dipilih"),
+          SnackBar(
+            content: const Text('Foto berhasil dipilih'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Gagal memilih foto"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackBar('Gagal memilih foto: ${e.toString()}');
     }
+  }
+
+  // Method yang membuat setiap pilihan (Kamera/Galeri)
+  Widget _buildImageSourceOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F9FA),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE9ECEF)),
+        ),
+        child: Column(
+          children: [
+            // Container dengan icon
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0C1A3E),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            const SizedBox(height: 8),
+            // Text label
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _confirmDeletePhoto() {
@@ -166,19 +289,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
 
     if (response['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Foto profil berhasil dihapus"),
-          backgroundColor: Colors.green,
-        ),
+      showDeletePhotoSuccessPopup(
+        context,
+        onDone: () {
+          setState(() {});
+        },
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Gagal hapus foto: ${response['message']}"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackBar("Gagal hapus foto: ${response['message']}");
     }
   }
 
@@ -213,7 +331,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   String? _validatePassword(String? value) {
     if (value != null && value.isNotEmpty && value.length < 6) {
-      return 'Password minimal 6 karakter';
+      return 'Password minimal 8 karakter';
     }
     return null;
   }
@@ -279,7 +397,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     Center(
                       child: Column(
                         children: [
-                          _containerProfileImage(),
+                          GestureDetector(
+                            onTap: _pickImage,
+                            child: _containerProfileImage(),
+                          ),
                           const SizedBox(height: 16),
                           const Text(
                             "Upload Foto Profile",
@@ -301,12 +422,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             onPressed: _pickImage,
                             icon: const Icon(Icons.photo_library, size: 18),
                             label: const Text("Pilih Foto"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0C1A3E),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                              elevation: 2,
+                            ),
                           ),
-
                           const SizedBox(height: 8),
-
                           TextButton.icon(
-                            onPressed: () => _confirmDeletePhoto(),
+                            onPressed: _confirmDeletePhoto,
                             icon: const Icon(
                               Icons.delete_outline,
                               color: Colors.red,
@@ -374,6 +505,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           ),
                           child: DropdownButtonFormField<String>(
                             value: _selectedRole,
+                            dropdownColor: Colors.white,
                             decoration: const InputDecoration(
                               prefixIcon: Icon(
                                 Icons.admin_panel_settings_outlined,
@@ -384,16 +516,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                               ),
                               border: InputBorder.none,
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: "Pengguna",
-                                child: Text("Pengguna"),
-                              ),
-                              DropdownMenuItem(
-                                value: "Admin",
-                                child: Text("Admin"),
-                              ),
-                            ],
+                            items:
+                                roleOptions.map((option) {
+                                  return DropdownMenuItem<String>(
+                                    value: option['value'],
+                                    child: Text(option['label']!),
+                                  );
+                                }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 _selectedRole = value;
@@ -633,7 +762,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
       print('Profile Image: ${_imageFile != null ? 'provided' : 'null'}');
 
-      // Sementara: Coba tanpa upload gambar dulu untuk debug
       final response = await ApiService.updateProfile(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
@@ -653,9 +781,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
       // Debug: Print response
       print('Response received: $response');
 
-      // Handle response (assuming it's always Map<String, dynamic> from ApiService)
+      // Handle response
       if (response['success'] == true || response['status'] == 'success') {
-        // Tutup loading state dulu
         if (mounted) {
           showSuccessPopup(context, "Profile berhasil diperbarui!", () {
             Navigator.of(context, rootNavigator: true).pop();
@@ -677,21 +804,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   (route) => false,
                 );
               } catch (e) {
-                // Dialog mungkin sudah tertutup
                 print('Dialog already closed or error: $e');
               }
             }
           });
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Gagal update: ${response['message'] ?? response['error'] ?? 'Unknown error'}",
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
+        _showErrorSnackBar(
+          "Gagal update: ${response['message'] ?? response['error'] ?? 'Unknown error'}",
         );
       }
     } catch (e) {
@@ -702,14 +822,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       });
 
       print('Error occurred: $e');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Terjadi kesalahan: ${e.toString()}"),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showErrorSnackBar("Terjadi kesalahan: ${e.toString()}");
     }
   }
 }

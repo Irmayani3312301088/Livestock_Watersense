@@ -71,17 +71,16 @@ const getUserById = async (req, res) => {
   }
 };
 
-// CREATE user by admin (belum bisa login)
+// CREATE user by admin 
 const createUserByAdmin = async (req, res) => {
   try {
-    const { name, username, email, role = 'peternak' } = req.body;
-    const adminId = req.user?.id; // Optional jika ada middleware auth
+    const { name, username, email, role = 'peternak', password } = req.body;
+    const adminId = req.user?.id; 
 
     console.log('Create User Request Body:', req.body);
     console.log('Create User File:', req.file);
 
     if (!name || !email) {
-      // Hapus file yang sudah diupload jika ada error
       if (req.file && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
@@ -115,7 +114,7 @@ const createUserByAdmin = async (req, res) => {
       });
     }
 
-    // Cek username jika ada
+    // Cek username
     if (username) {
       const existingUsername = await User.findOne({ where: { username } });
       if (existingUsername) {
@@ -129,12 +128,22 @@ const createUserByAdmin = async (req, res) => {
       }
     }
 
+    // Validasi dan hash password
+    if (!password || password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password wajib diisi minimal 8 karakter.'
+      });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const profileImage = req.file ? req.file.filename : null;
 
     const newUser = await User.create({
       name,
       username: username || null,
       email,
+      password: hashedPassword, 
       role,
       profile_image: profileImage,
       status: 'pending',
@@ -150,21 +159,19 @@ const createUserByAdmin = async (req, res) => {
         username: newUser.username,
         email: newUser.email,
         role: newUser.role,
-        profile_image: newUser.profile_image,
-        status: newUser.status
+        status: newUser.status,
+        profile_image: newUser.profile_image
       }
     });
   } catch (err) {
     console.error('Create User Error:', err);
-    
-    // Hapus file yang sudah diupload jika ada error
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    
     res.status(500).json({ success: false, message: 'Gagal menambah pengguna.' });
   }
 };
+
 
 // UPDATE user
 const updateUser = async (req, res) => {
@@ -253,12 +260,12 @@ const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
     const user = await User.findByPk(id);
-    
+
     if (!user) {
       return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
     }
 
-    // Hapus file gambar jika ada
+    // Hapus foto profil 
     if (user.profile_image) {
       const imagePath = path.join('uploads/profiles/', user.profile_image);
       if (fs.existsSync(imagePath)) {
@@ -273,6 +280,7 @@ const deleteUser = async (req, res) => {
     res.status(500).json({ success: false, message: 'Gagal hapus pengguna.' });
   }
 };
+
 
 // ADDED: Check email exists
 const checkEmailExists = async (req, res) => {

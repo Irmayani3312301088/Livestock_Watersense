@@ -14,10 +14,12 @@ class _LandingPageState extends State<LandingPage>
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late AnimationController _buttonController;
+  late AnimationController _backgroundController;
 
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _buttonScaleAnimation;
+  late Animation<double> _backgroundAnimation;
 
   bool _isButtonPressed = false;
 
@@ -29,35 +31,38 @@ class _LandingPageState extends State<LandingPage>
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness:
-            Brightness.dark, // Changed to dark for white background
+        statusBarIconBrightness: Brightness.dark,
       ),
     );
 
     // Initialize animation controllers
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1500),
     );
 
     _slideController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1200),
     );
 
     _buttonController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 200),
     );
 
-    // Setup animations
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
+    _backgroundController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat(reverse: true);
+
+    // Setup animations with proper curves
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.5),
+      begin: const Offset(0, 0.8),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
@@ -67,12 +72,23 @@ class _LandingPageState extends State<LandingPage>
       CurvedAnimation(parent: _buttonController, curve: Curves.easeInOut),
     );
 
-    // Start animations with delays
+    _backgroundAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _backgroundController, curve: Curves.easeInOut),
+    );
+
+    // Start animations with proper delays
+    _startAnimations();
+  }
+
+  void _startAnimations() async {
+    // Start fade animation immediately
     _fadeController.forward();
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _slideController.forward();
-    });
+    // Start slide animation after a short delay
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (mounted) {
+      _slideController.forward();
+    }
   }
 
   @override
@@ -80,10 +96,13 @@ class _LandingPageState extends State<LandingPage>
     _fadeController.dispose();
     _slideController.dispose();
     _buttonController.dispose();
+    _backgroundController.dispose();
     super.dispose();
   }
 
   void _onButtonPressed() async {
+    if (_isButtonPressed) return;
+
     setState(() => _isButtonPressed = true);
 
     // Button press animation
@@ -140,186 +159,213 @@ class _LandingPageState extends State<LandingPage>
       body: Stack(
         children: [
           // Animated background gradient
-          AnimatedContainer(
-            duration: const Duration(seconds: 3),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF0C1A3E),
-                  const Color(0xFF1A2B5E).withOpacity(0.8),
-                  const Color(0xFF0C1A3E),
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              ),
-            ),
+          AnimatedBuilder(
+            animation: _backgroundAnimation,
+            builder: (context, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF0C1A3E),
+                      Color.lerp(
+                        const Color(0xFF1A2B5E),
+                        const Color(0xFF2A3B6E),
+                        _backgroundAnimation.value,
+                      )!.withOpacity(0.8),
+                      const Color(0xFF0C1A3E),
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+              );
+            },
           ),
 
           // Hero image with white background inside clipped area
-          ClipPath(
-            clipper: SmoothBottomClipper(),
-            child: Container(
-              height: imageHeight,
-              width: double.infinity,
-              // Changed to white background
-              color: Colors.white,
-              child: Stack(
-                children: [
-                  // Main image with white background
-                  Hero(
-                    tag: 'landing_image',
-                    child: Container(
-                      width: double.infinity,
-                      height: imageHeight,
-                      // Added white background for the image container
-                      color: Colors.white,
-                      child: Transform.scale(
-                        scale: 1.1,
-                        child: Image.asset(
-                          'assets/Live.png',
-                          fit:
-                              BoxFit
-                                  .contain, // Changed to contain to preserve aspect ratio
-                          alignment: Alignment.center,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color:
-                                  Colors
-                                      .white, // White background for error state
-                              child: Center(
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  size: 80,
-                                  color: Colors.grey.shade400,
+          AnimatedBuilder(
+            animation: _fadeAnimation,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _fadeAnimation.value,
+                child: ClipPath(
+                  clipper: SmoothBottomClipper(),
+                  child: Container(
+                    height: imageHeight,
+                    width: double.infinity,
+                    color: Colors.white,
+                    child: Hero(
+                      tag: 'landing_image',
+                      child: Container(
+                        width: double.infinity,
+                        height: imageHeight,
+                        color: Colors.white,
+                        child: Transform.scale(
+                          scale: 1.0 + (_fadeAnimation.value * 0.1),
+                          child: Image.asset(
+                            'assets/Live.png',
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.white,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.image_not_supported,
+                                    size: 80,
+                                    color: Colors.grey.shade400,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
 
           // Main content with enhanced animations
           SafeArea(
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: SlideTransition(
-                position: _slideAnimation,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      bottom: isLandscape ? 40 : 60,
-                      left: 24,
-                      right: 24,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Enhanced title
-                        Text(
-                          "Sistem Pintar\nOtomatisasi Air Minum dan\nPemantauan Suhu Pada Kandang Kambing",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: titleFontSize,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            height: 1.4,
-                            letterSpacing: 0.5,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withOpacity(0.7),
-                                offset: const Offset(0, 2),
-                                blurRadius: 8,
-                              ),
-                              Shadow(
-                                color: Colors.black.withOpacity(0.3),
-                                offset: const Offset(0, 4),
-                                blurRadius: 12,
-                              ),
-                            ],
-                          ),
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_fadeAnimation, _slideAnimation]),
+              builder: (context, child) {
+                return FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          bottom: isLandscape ? 40 : 60,
+                          left: 24,
+                          right: 24,
                         ),
-
-                        SizedBox(height: isLandscape ? 20 : 30),
-
-                        // Enhanced button
-                        ScaleTransition(
-                          scale: _buttonScaleAnimation,
-                          child: Container(
-                            width: buttonWidth,
-                            height: buttonHeight,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(30),
-                              gradient: LinearGradient(
-                                colors: [Colors.white, Colors.grey.shade100],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 8),
-                                ),
-                                BoxShadow(
-                                  color: Colors.white.withOpacity(0.1),
-                                  blurRadius: 5,
-                                  offset: const Offset(0, -2),
-                                ),
-                              ],
-                            ),
-                            child: ElevatedButton(
-                              onPressed:
-                                  _isButtonPressed ? null : _onButtonPressed,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                foregroundColor: const Color(0xFF0C1A3E),
-                                shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    "Selanjutnya",
-                                    style: TextStyle(
-                                      fontSize: isTablet ? 18 : 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1,
-                                    ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Enhanced title
+                            Text(
+                              "Sistem Pintar\nOtomatisasi Air Minum dan\nPemantauan Suhu Pada Kandang Kambing",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: titleFontSize,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                height: 1.4,
+                                letterSpacing: 0.5,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black.withOpacity(0.7),
+                                    offset: const Offset(0, 2),
+                                    blurRadius: 8,
+                                  ),
+                                  Shadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    offset: const Offset(0, 4),
+                                    blurRadius: 12,
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        ),
 
-                        SizedBox(height: isLandscape ? 15 : 20),
+                            SizedBox(height: isLandscape ? 20 : 30),
 
-                        // Additional info text
-                        Text(
-                          "Geser untuk memulai dengan pemantauan pintar",
-                          style: TextStyle(
-                            fontSize: isTablet ? 14 : 12,
-                            color: Colors.white.withOpacity(0.7),
-                            fontWeight: FontWeight.w300,
-                          ),
+                            // Enhanced button with animation
+                            AnimatedBuilder(
+                              animation: _buttonScaleAnimation,
+                              builder: (context, child) {
+                                return Transform.scale(
+                                  scale: _buttonScaleAnimation.value,
+                                  child: Container(
+                                    width: buttonWidth,
+                                    height: buttonHeight,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(30),
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.white,
+                                          Colors.grey.shade100,
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.3),
+                                          blurRadius: 15,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                        BoxShadow(
+                                          color: Colors.white.withOpacity(0.1),
+                                          blurRadius: 5,
+                                          offset: const Offset(0, -2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ElevatedButton(
+                                      onPressed:
+                                          _isButtonPressed
+                                              ? null
+                                              : _onButtonPressed,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.transparent,
+                                        foregroundColor: const Color(
+                                          0xFF0C1A3E,
+                                        ),
+                                        shadowColor: Colors.transparent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            30,
+                                          ),
+                                        ),
+                                        elevation: 0,
+                                      ),
+                                      child: Text(
+                                        "Selanjutnya",
+                                        style: TextStyle(
+                                          fontSize: isTablet ? 18 : 16,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            SizedBox(height: isLandscape ? 15 : 20),
+
+                            // Additional info text with fade animation
+                            AnimatedBuilder(
+                              animation: _fadeAnimation,
+                              builder: (context, child) {
+                                return Opacity(
+                                  opacity: _fadeAnimation.value * 0.7,
+                                  child: Text(
+                                    "Geser untuk memulai dengan pemantauan pintar",
+                                    style: TextStyle(
+                                      fontSize: isTablet ? 14 : 12,
+                                      color: Colors.white.withOpacity(0.7),
+                                      fontWeight: FontWeight.w300,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],

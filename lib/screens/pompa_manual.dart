@@ -1,62 +1,190 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import '../../services/api_service.dart';
+import '../../services/mqtt_service.dart';
 
-class PompaManualPage extends StatelessWidget {
+class PompaManualPage extends StatefulWidget {
+  @override
+  _PompaManualPageState createState() => _PompaManualPageState();
+}
+
+class _PompaManualPageState extends State<PompaManualPage> {
+  final MQTTService mqtt = MQTTService();
+  bool isPompaOn = false;
+  String levelAir = '...';
+
+  final String batasAtas = '20cm';
+  final String batasBawah = '100cm';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatusPompa();
+  }
+
+  void _loadStatusPompa() async {
+    try {
+      final status = await ApiService().getStatusPompa();
+      setState(() {
+        isPompaOn = status == 'on';
+      });
+    } catch (e) {
+      print('Gagal ambil status pompa: $e');
+    }
+  }
+
+  void _togglePompa() async {
+    final newStatus = isPompaOn ? 'off' : 'on';
+    final success = await ApiService().ubahStatusPompa(newStatus);
+    if (success) {
+      setState(() {
+        isPompaOn = !isPompaOn;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Pompa ${newStatus == 'on' ? 'dinyalakan' : 'dimatikan'}',
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal mengubah status pompa')));
+    }
+  }
+
+  void _konfirmasiPompa() async {
+    final success = await ApiService().kirimKonfirmasi(
+      levelAir: levelAir,
+      batasKetinggian: batasAtas,
+      batasRendah: batasBawah,
+      statusPompa: isPompaOn ? 'on' : 'off',
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success ? 'Konfirmasi berhasil' : 'Gagal konfirmasi'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
-      backgroundColor: Color(0xFFFDF2FD), // Warna latar belakang keseluruhan
+      backgroundColor: Colors.white, // Background putih
       appBar: AppBar(
-        leading: BackButton(color: Colors.black),
-        title: Text('Pompa Manual', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.transparent, // Menghilangkan abu-abu AppBar
-        elevation: 0, // Hilangkan bayangan AppBar
+        leading: const BackButton(color: Colors.black),
+        title: const Text(
+          'Pompa Manual',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(20),
+        padding: EdgeInsets.symmetric(
+          horizontal: screenWidth * 0.05, // 5% dari lebar layar
+          vertical: 20,
+        ),
         child: Column(
           children: [
-            // Tombol Power Hijau
-            Container(
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Color.fromARGB(255, 45, 192, 45),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.power_settings_new,
-                color: Colors.white,
-                size: 60,
+            // Tombol Power
+            GestureDetector(
+              onTap: _togglePompa,
+              child: Container(
+                width: screenWidth * 0.3, // 30% dari lebar layar
+                height: screenWidth * 0.3, // Persegi
+                decoration: BoxDecoration(
+                  color: isPompaOn ? Colors.green : Colors.red,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isPompaOn ? Colors.green : Colors.red)
+                          .withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.power_settings_new,
+                  color: Colors.white,
+                  size: screenWidth * 0.12, // 12% dari lebar layar
+                ),
               ),
             ),
-            SizedBox(height: 50),
 
-            // Kartu peringatan
+            SizedBox(height: screenHeight * 0.03), // 3% dari tinggi layar
+            // Status Pompa
             Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 6),
-                ],
+                color: isPompaOn ? Colors.green.shade50 : Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isPompaOn ? Colors.green : Colors.red,
+                  width: 1,
+                ),
               ),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      bottomLeft: Radius.circular(16),
-                    ),
-                    child: Image.asset(
-                      'assets/pompa.png',
-                      width: 150,
-                      height: 200,
-                      fit: BoxFit.cover,
+                  Icon(
+                    isPompaOn ? Icons.check_circle : Icons.cancel,
+                    color: isPompaOn ? Colors.green : Colors.red,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Pompa ${isPompaOn ? 'Menyala' : 'Mati'}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isPompaOn ? Colors.green : Colors.red,
+                      fontSize: 16,
                     ),
                   ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
+                ],
+              ),
+            ),
+
+            SizedBox(height: screenHeight * 0.04), // 4% dari tinggi layar
+            // Kartu Peringatan - Responsif
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.orange.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orange.shade700,
+                        size: screenWidth * 0.08, // 8% dari lebar layar
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -64,55 +192,79 @@ class PompaManualPage extends StatelessWidget {
                             "Perhatian!",
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontSize: screenWidth * 0.042, // Responsif
+                              color: Colors.orange.shade700,
                             ),
                           ),
-                          SizedBox(height: 6),
+                          const SizedBox(height: 6),
                           Text(
-                            "Harap perhatikan ketinggian air sebelum menambahkannya secara manual",
-                            style: TextStyle(fontSize: 14),
+                            "Pastikan batas air sesuai sebelum menyalakan pompa.",
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.035, // Responsif
+                              color: Colors.grey.shade700,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
-            SizedBox(height: 24),
+            SizedBox(height: screenHeight * 0.03),
 
-            // Data Ketinggian Air
-            buildDataTile('Level Air', '80cm', color: Color(0xFFF4B740)),
-            SizedBox(height: 12),
-            buildDataTile('Rekomendasi Batas Ketinggian', '20cm'),
-            SizedBox(height: 12),
-            buildDataTile('Rekomendasi Batas Rendah', '100cm'),
+            // Data Monitoring - Tanpa Text Field
+            buildDataTile(
+              'Level Air Sekarang',
+              levelAir,
+              icon: Icons.water_drop,
+              color: const Color(0xFFF4B740),
+            ),
+            const SizedBox(height: 12),
+            buildDataTile(
+              'Batas Ketinggian',
+              batasAtas,
+              icon: Icons.height,
+              color: Colors.blue.shade50,
+            ),
+            const SizedBox(height: 12),
+            buildDataTile(
+              'Batas Rendah',
+              batasBawah,
+              icon: Icons.low_priority,
+              color: Colors.red.shade50,
+            ),
 
-            SizedBox(height: 32),
+            SizedBox(height: screenHeight * 0.04),
 
-            // Tombol Konfirmasi
+            // Tombol Konfirmasi - Responsif
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: _konfirmasiPompa,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF002F6C),
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: const Color(0xFF002F6C),
+                  padding: EdgeInsets.symmetric(
+                    vertical: screenHeight * 0.02, // 2% dari tinggi layar
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
+                  elevation: 3,
                 ),
                 child: Text(
                   'Konfirmasi',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: screenWidth * 0.042, // Responsif
                     fontWeight: FontWeight.bold,
-                    color: CupertinoContextMenu.kBackgroundColor,
+                    color: Colors.white,
                   ),
                 ),
               ),
             ),
+
+            SizedBox(height: screenHeight * 0.02),
           ],
         ),
       ),
@@ -123,19 +275,55 @@ class PompaManualPage extends StatelessWidget {
     String label,
     String value, {
     Color color = Colors.white,
+    IconData? icon,
   }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.05),
+            blurRadius: 4,
+            spreadRadius: 1,
+          ),
+        ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontWeight: FontWeight.w500)),
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold)),
+          if (icon != null) ...[
+            Icon(icon, size: screenWidth * 0.05, color: Colors.grey.shade600),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: screenWidth * 0.04,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: screenWidth * 0.04,
+                color: Colors.black87,
+              ),
+            ),
+          ),
         ],
       ),
     );

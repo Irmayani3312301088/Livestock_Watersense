@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'home_page.dart';
 import 'regis_page.dart';
+import 'user_dashboard.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -98,24 +99,18 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     return true;
   }
 
-  // Modifikasi method _login() yang sudah ada
+  // method _login()
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      // Validasi checkbox "Ingat saya" sebelum login
-      if (!_validateRememberMe()) {
-        return; // Stop jika checkbox belum dicentang
-      }
+      // Validasi checkbox "Ingat saya"
+      if (!_validateRememberMe()) return;
 
-      // Haptic feedback
       HapticFeedback.lightImpact();
-
-      // Unfocus to hide keyboard
       FocusScope.of(context).unfocus();
-
       setState(() => _isLoading = true);
 
       try {
-        // Save credentials if remember me is checked
+        // Simpan email jika centang "ingat saya"
         if (_rememberMe) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('saved_email', _emailController.text.trim());
@@ -127,7 +122,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         );
 
         if (!mounted) return;
-
         setState(() => _isLoading = false);
 
         if (response['success'] == true) {
@@ -140,29 +134,45 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('email', user['email'] ?? '');
           await prefs.setString('name', user['name'] ?? '');
+          await prefs.setString('role', user['role']);
 
           final profile = await ApiService.getProfile();
           if (profile['success']) {
             print("User profile: ${profile['data']}");
           }
 
-          // Success haptic feedback
           HapticFeedback.mediumImpact();
-
           _showSuccessSnackBar(
             'Login berhasil! Selamat datang ${user['name'] ?? 'User'}',
           );
 
-          // Smooth transition to home page
-          await Future.delayed(const Duration(milliseconds: 500));
-
           if (mounted) {
+            final role = user['role'];
+
+            //  Validasi jika role null / kosong
+            if (role == null || role.toString().trim().isEmpty) {
+              _showErrorSnackBar(
+                'Role tidak ditemukan. Silakan hubungi admin.',
+              );
+              return;
+            }
+
+            //  Arahkan ke halaman sesuai role
+            Widget targetPage;
+            if (role == 'admin') {
+              targetPage = const HomePage();
+            } else if (role == 'user') {
+              targetPage = const UserDashboard();
+            } else {
+              _showErrorSnackBar('Akun belum memiliki role. Hubungi admin.');
+              return;
+            }
+
             Navigator.pushReplacement(
               context,
               PageRouteBuilder(
                 pageBuilder:
-                    (context, animation, secondaryAnimation) =>
-                        const HomePage(),
+                    (context, animation, secondaryAnimation) => targetPage,
                 transitionDuration: const Duration(milliseconds: 600),
                 transitionsBuilder: (
                   context,
@@ -210,7 +220,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         }
       }
     } else {
-      // Validation error haptic feedback
       HapticFeedback.lightImpact();
     }
   }
@@ -387,6 +396,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                           // Email Field
                           _buildAnimatedTextField(
                             label: "E-mail",
+                            hintText: "email@gmail.com",
                             controller: _emailController,
                             focusNode: _emailFocus,
                             keyboardType: TextInputType.emailAddress,
@@ -399,6 +409,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                           // Password Field
                           _buildAnimatedTextField(
                             label: "Kata Sandi",
+                            hintText: "Minimal 8 karakter",
                             controller: _passwordController,
                             focusNode: _passwordFocus,
                             obscureText: _obscureText,
@@ -676,6 +687,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   Widget _buildAnimatedTextField({
     required String label,
+    required String hintText,
     required TextEditingController controller,
     required FocusNode focusNode,
     bool obscureText = false,

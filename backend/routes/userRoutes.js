@@ -15,7 +15,6 @@ const {
 const { verifyToken } = require('../middleware/authMiddleware');
 const isAdmin = require('../middleware/adminMiddleware');
 
-
 // GET all users
 router.get('/', getAllUsers);
 
@@ -29,7 +28,7 @@ router.post('/', upload.single('profile_image'), createUserByAdmin);
 router.put('/:id', upload.single('profile_image'), updateUser);
 
 // DELETE user
-router.delete('/:id', deleteUser);
+router.delete('/users/:id', verifyToken, deleteUser);
 
 // POST check email exists
 router.post('/check-email', checkEmailExists);
@@ -43,7 +42,6 @@ router.post('/activate-user', (req, res, next) => {
   console.log('Route HIT: POST /api/users/activate-user');
   next();
 }, activateUser);
-
 
 
 module.exports = router;

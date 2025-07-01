@@ -7,9 +7,9 @@ const WaterUsage = sequelize.define('WaterUsage', {
     allowNull: false,
   },
   usage_ml: {
-    type: DataTypes.FLOAT,
-    allowNull: false,
-  },
+  type: DataTypes.DECIMAL(15, 3), 
+  allowNull: false,
+},
   date: {
   type: DataTypes.DATEONLY,
   allowNull: false,

@@ -1,12 +1,10 @@
 import 'package:Livestock_Watersense/screens/splash_screen.dart';
-import 'package:Livestock_Watersense/screens/user_dashboard.dart';
 import 'package:flutter/material.dart';
-import 'screens/home_page.dart';
-import 'screens/profile.dart';
-import 'screens/edit_profile.dart';
-import 'screens/login_page.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
 }
 
