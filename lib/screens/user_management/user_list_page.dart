@@ -68,7 +68,7 @@ class _UserListPageState extends State<UserListPage> {
                   'role': user['role'] ?? '',
                   'imageUrl':
                       user['profile_image'] != null
-                          ? '$baseUrl/uploads/profiles/${user['profile_image']}'
+                          ? 'http://10.0.2.2:5000/uploads/profiles/${user['profile_image']}'
                           : '',
                   'status': user['status'] ?? 'pending',
                 },
