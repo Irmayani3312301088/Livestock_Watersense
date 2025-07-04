@@ -648,27 +648,4 @@ class ApiService {
       throw Exception('Failed to send MQTT message: $e');
     }
   }
-
-  //OTP
-  static Future<Map<String, dynamic>> sendOtp(String email) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/forgot-password'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email}),
-    );
-    return jsonDecode(response.body);
-  }
-
-  static Future<Map<String, dynamic>> resetPasswordWithOtp(
-    String email,
-    String otp,
-    String password,
-  ) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/reset-password'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'otp': otp, 'newPassword': password}),
-    );
-    return jsonDecode(response.body);
-  }
 }
