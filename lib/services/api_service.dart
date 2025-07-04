@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '/models/notification_item.dart';
 import 'mqtt_service.dart';
 import 'package:mqtt_client/mqtt_client.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 
 class ApiService {
   static const String baseUrl = 'http://10.0.2.2:5000/api';
@@ -333,16 +335,16 @@ class ApiService {
     File? profileImage,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/profile/edit');
+      final uri = Uri.parse('$baseUrl/profile');
       var request = http.MultipartRequest('PUT', uri);
 
-      //  Tambahkan token
+      // Tambahkan Authorization token jika ada
       final token = await getToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      //  Tambahkan field
+      // Tambahkan form fields
       request.fields['name'] = name;
       request.fields['email'] = email;
       request.fields['username'] = username;
@@ -351,33 +353,46 @@ class ApiService {
         request.fields['password'] = password;
       }
 
-      //  Validasi dan upload file
+      // Validasi dan kirim file gambar (dengan mime type)
       if (profileImage != null) {
         final fileSize = await profileImage.length();
         if (fileSize > 5 * 1024 * 1024) {
-          // Jika > 5MB
           return {
             'success': false,
             'message': 'Ukuran gambar terlalu besar. Maksimal 5MB.',
           };
         }
 
-        request.files.add(
-          await http.MultipartFile.fromPath('profile_image', profileImage.path),
+        // Deteksi mime type berdasarkan isi file
+        final mimeType = lookupMimeType(profileImage.path);
+        if (mimeType == null ||
+            !(mimeType == 'image/jpeg' || mimeType == 'image/png')) {
+          return {
+            'success': false,
+            'message': 'Hanya file JPEG, JPG, atau PNG yang diperbolehkan.',
+          };
+        }
+
+        final multipartFile = await http.MultipartFile.fromPath(
+          'profile_image',
+          profileImage.path,
+          contentType: MediaType.parse(mimeType),
         );
+        request.files.add(multipartFile);
       }
 
-      // Kirim request
-      final response = await request.send().timeout(
+      // Kirim request ke server
+      final streamedResponse = await request.send().timeout(
         const Duration(seconds: 15),
       );
-      final res = await http.Response.fromStream(response);
+      final response = await http.Response.fromStream(streamedResponse);
 
-      if (!res.headers['content-type']!.contains('application/json')) {
+      // Pastikan response JSON
+      if (!response.headers['content-type']!.contains('application/json')) {
         return {'success': false, 'message': 'Server mengembalikan non-JSON'};
       }
 
-      return json.decode(res.body);
+      return json.decode(response.body);
     } catch (e) {
       return {'success': false, 'message': 'Gagal update profil: $e'};
     }
@@ -632,5 +647,28 @@ class ApiService {
       print('Error sending to MQTT: $e');
       throw Exception('Failed to send MQTT message: $e');
     }
+  }
+
+  //OTP
+  static Future<Map<String, dynamic>> sendOtp(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/forgot-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+    return jsonDecode(response.body);
+  }
+
+  static Future<Map<String, dynamic>> resetPasswordWithOtp(
+    String email,
+    String otp,
+    String password,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'otp': otp, 'newPassword': password}),
+    );
+    return jsonDecode(response.body);
   }
 }
