@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
+
 dotenv.config();
 
 const { sequelize, testConnection } = require('./config/database');
@@ -34,7 +36,8 @@ app.use('/api/water-usage', waterUsageRoutes);
 app.use('/api', notificationRoutes);
 app.use('/api/batas-air', batasAirRoutes);
 app.use('/api', manualPumpRoutes);
-
+app.use('/auth', authRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Jalankan server
 (async () => {
@@ -45,3 +48,4 @@ app.use('/api', manualPumpRoutes);
     console.error(' Gagal koneksi database. Server tidak dijalankan.');
   }
 })();
+

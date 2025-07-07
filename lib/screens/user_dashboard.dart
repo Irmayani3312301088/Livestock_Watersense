@@ -172,7 +172,7 @@ class ResponsiveDashboard extends StatelessWidget {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return CircleAvatar(
                 radius: avatarRadius,
-                backgroundColor: Colors.grey,
+                backgroundColor: Colors.grey[300],
               );
             }
 
@@ -180,7 +180,11 @@ class ResponsiveDashboard extends StatelessWidget {
                 snapshot.data != null &&
                 snapshot.data!['success'] == true) {
               final profileData = snapshot.data!['data'];
-              final photoUrl = profileData['photo'];
+              final photoFilename = profileData['profile_image'];
+              final photoUrl =
+                  photoFilename != null
+                      ? 'http://10.0.2.2:5000/uploads/profiles/$photoFilename'
+                      : null;
 
               if (photoUrl != null && photoUrl.isNotEmpty) {
                 return CircleAvatar(

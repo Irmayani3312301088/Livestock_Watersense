@@ -6,7 +6,6 @@ import 'user_management/user_list_page.dart';
 import 'profile.dart';
 import 'kustom_batas_air_page.dart';
 import '../services/api_service.dart';
-import '../services/mqtt_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -35,10 +34,6 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
   String? userName;
 
-  // mqtt
-  late MQTTService _mqttService;
-  Map<String, dynamic>? _livestockData;
-
   final List<Widget> _pages = [
     const DashboardPage(),
     const RiwayatPage(),
@@ -49,29 +44,13 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _mqttService = MQTTService();
-    _initMQTT();
+
     _loadUserProfile();
   }
 
   @override
   void dispose() {
-    _mqttService.disconnect();
     super.dispose();
-  }
-
-  // mqtt
-  Future<void> _initMQTT() async {
-    try {
-      await _mqttService.connect();
-      _mqttService.livestockDataStream.listen((data) {
-        if (mounted) {
-          setState(() => _livestockData = data);
-        }
-      });
-    } catch (e) {
-      print('MQTT Error: $e');
-    }
   }
 
   Future<void> _loadUserProfile() async {
@@ -230,15 +209,42 @@ class DashboardPage extends StatelessWidget {
                 ),
               ),
 
-              // Avatar dengan ukuran disesuaikan
-              CircleAvatar(
-                radius: avatarSize,
-                backgroundColor: Colors.grey,
-                child: Icon(
-                  Icons.person,
-                  color: Colors.white,
-                  size: avatarSize * 0.8,
-                ),
+              // photo profile
+              FutureBuilder<Map<String, dynamic>>(
+                future: ApiService.getProfile(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return CircleAvatar(
+                      radius: avatarSize,
+                      backgroundColor: Colors.grey[300],
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasData &&
+                      snapshot.data!['success'] == true &&
+                      snapshot.data!['data']['profile_image'] != null) {
+                    final imageUrl =
+                        'http://10.0.2.2:5000/uploads/profiles/${snapshot.data!['data']['profile_image']}';
+                    return CircleAvatar(
+                      radius: avatarSize,
+                      backgroundImage: NetworkImage(imageUrl),
+                    );
+                  }
+
+                  return CircleAvatar(
+                    radius: avatarSize,
+                    backgroundColor: Colors.grey,
+                    child: Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: avatarSize * 0.8,
+                    ),
+                  );
+                },
               ),
             ],
           ),

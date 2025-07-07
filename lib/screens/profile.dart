@@ -43,24 +43,74 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Widget _buildProfileField(String label, String value, double screenWidth) {
+  ResponsiveValues _getResponsiveValues(double width, double height) {
+    if (width < 400) {
+      return ResponsiveValues(
+        horizontalPadding: width * 0.04,
+        verticalPadding: height * 0.015,
+        avatarRadius: width * 0.14,
+        cardMargin: width * 0.04,
+        titleFontSize: width * 0.065,
+        labelFontSize: width * 0.035,
+        valueFontSize: width * 0.04,
+        buttonFontSize: width * 0.037,
+        iconSize: width * 0.055,
+        spacing: width * 0.032,
+        maxCardWidth: double.infinity,
+      );
+    } else if (width < 500) {
+      return ResponsiveValues(
+        horizontalPadding: width * 0.05,
+        verticalPadding: height * 0.02,
+        avatarRadius: width * 0.12,
+        cardMargin: width * 0.05,
+        titleFontSize: width * 0.06,
+        labelFontSize: width * 0.032,
+        valueFontSize: width * 0.038,
+        buttonFontSize: width * 0.035,
+        iconSize: width * 0.05,
+        spacing: width * 0.03,
+        maxCardWidth: double.infinity,
+      );
+    } else {
+      return ResponsiveValues(
+        horizontalPadding: width * 0.06,
+        verticalPadding: height * 0.025,
+        avatarRadius: width * 0.1,
+        cardMargin: width * 0.06,
+        titleFontSize: width * 0.055,
+        labelFontSize: width * 0.03,
+        valueFontSize: width * 0.035,
+        buttonFontSize: width * 0.032,
+        iconSize: width * 0.045,
+        spacing: width * 0.028,
+        maxCardWidth: double.infinity,
+      );
+    }
+  }
+
+  Widget _buildProfileField(
+    String label,
+    String value,
+    ResponsiveValues responsive,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: screenWidth * 0.032, // Responsive font size
+            fontSize: responsive.labelFontSize,
             fontWeight: FontWeight.w500,
             color: const Color(0xFF6B7280),
           ),
         ),
-        SizedBox(height: screenWidth * 0.015), // Responsive spacing
+        SizedBox(height: responsive.spacing * 0.5),
         Container(
           width: double.infinity,
           padding: EdgeInsets.symmetric(
-            vertical: screenWidth * 0.03,
-            horizontal: screenWidth * 0.01,
+            vertical: responsive.spacing * 0.8,
+            horizontal: responsive.spacing * 0.3,
           ),
           decoration: const BoxDecoration(
             border: Border(
@@ -70,7 +120,7 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Text(
             value,
             style: TextStyle(
-              fontSize: screenWidth * 0.038, // Responsive font size
+              fontSize: responsive.valueFontSize,
               fontWeight: FontWeight.w400,
               color: const Color(0xFF1F2937),
               height: 1.2,
@@ -81,22 +131,22 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildPasswordField(String label, double screenWidth) {
+  Widget _buildPasswordField(String label, ResponsiveValues responsive) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: screenWidth * 0.032,
+            fontSize: responsive.labelFontSize,
             fontWeight: FontWeight.w500,
             color: const Color(0xFF6B7280),
           ),
         ),
-        SizedBox(height: screenWidth * 0.015),
+        SizedBox(height: responsive.spacing * 0.5),
         Container(
           width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.01),
+          padding: EdgeInsets.symmetric(horizontal: responsive.spacing * 0.3),
           decoration: const BoxDecoration(
             border: Border(
               bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
@@ -108,7 +158,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Text(
                   '••••••••',
                   style: TextStyle(
-                    fontSize: screenWidth * 0.038,
+                    fontSize: responsive.valueFontSize,
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFF1F2937),
                     height: 1.2,
@@ -119,7 +169,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 icon: Icon(
                   Icons.lock_outline,
                   color: Colors.grey,
-                  size: screenWidth * 0.05, // Responsive icon size
+                  size: responsive.iconSize * 0.8,
                 ),
                 onPressed: null,
               ),
@@ -134,31 +184,27 @@ class _ProfilePageState extends State<ProfilePage> {
     required IconData icon,
     required String text,
     required Color color,
-    required double screenWidth,
+    required ResponsiveValues responsive,
   }) {
     return Container(
-      padding: EdgeInsets.all(screenWidth * 0.04), // Responsive padding
+      padding: EdgeInsets.all(responsive.spacing),
       child: Row(
         children: [
           Container(
-            width: screenWidth * 0.09, // Responsive container size
-            height: screenWidth * 0.09,
+            width: responsive.iconSize * 1.8,
+            height: responsive.iconSize * 1.8,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: screenWidth * 0.045, // Responsive icon size
-            ),
+            child: Icon(icon, color: color, size: responsive.iconSize * 0.9),
           ),
-          SizedBox(width: screenWidth * 0.03),
+          SizedBox(width: responsive.spacing),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                fontSize: screenWidth * 0.038,
+                fontSize: responsive.valueFontSize,
                 fontWeight: FontWeight.w500,
                 color: const Color(0xFF1F2937),
               ),
@@ -167,7 +213,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Icon(
             Icons.arrow_forward_ios,
             color: const Color(0xFF9CA3AF),
-            size: screenWidth * 0.035,
+            size: responsive.iconSize * 0.7,
           ),
         ],
       ),
@@ -178,251 +224,277 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0C1A3E),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // Get screen dimensions
-            final screenWidth = constraints.maxWidth;
-            final screenHeight = constraints.maxHeight;
-            final isTablet = screenWidth > 600;
-
-            // Calculate responsive values
-            final horizontalPadding = screenWidth * (isTablet ? 0.1 : 0.05);
-            final avatarRadius = screenWidth * (isTablet ? 0.08 : 0.12);
-            final cardMargin = screenWidth * (isTablet ? 0.08 : 0.05);
-
-            if (userProfile == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (userProfile!.isEmpty) {
-              return const Center(
-                child: Text(
-                  'Gagal memuat profil.',
-                  style: TextStyle(color: Colors.white),
-                ),
+      body: Container(
+        color: const Color(0xFF0C1A3E), // Warna biru tua untuk area atas
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final screenWidth = constraints.maxWidth;
+              final screenHeight = constraints.maxHeight;
+              final responsive = _getResponsiveValues(
+                screenWidth,
+                screenHeight,
               );
-            }
 
-            return SingleChildScrollView(
-              child: Column(
-                children: [
-                  // Header Bar
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: screenHeight * 0.015,
-                    ),
-                    child: Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            RoleNavigationHelper.goToDashboard(context);
-                          },
-
-                          child: Container(
-                            padding: EdgeInsets.all(screenWidth * 0.02),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                              size: screenWidth * 0.05,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Profile',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: screenWidth * 0.06,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        SizedBox(width: screenWidth * 0.12),
-                      ],
-                    ),
+              if (userProfile == null) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
+                );
+              }
 
-                  SizedBox(height: screenHeight * 0.05),
-
-                  // Profile Avatar
-                  CircleAvatar(
-                    radius: avatarRadius,
-                    backgroundColor: Colors.grey[300],
-                    backgroundImage:
-                        userProfile?['profile_image'] != null
-                            ? NetworkImage(
-                              'http://10.0.2.2:5000/uploads/profiles/${userProfile!['profile_image']}',
-                            )
-                            : null,
-                    child:
-                        userProfile?['profile_image'] == null
-                            ? Icon(
-                              Icons.person,
-                              size: avatarRadius * 1.2,
-                              color: Colors.white,
-                            )
-                            : null,
+              if (userProfile!.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'Gagal memuat profil.',
+                    style: TextStyle(color: Colors.white),
                   ),
+                );
+              }
 
-                  SizedBox(height: screenHeight * 0.04),
-
-                  // Profile Info Card
-                  Container(
-                    constraints: BoxConstraints(
-                      maxWidth: isTablet ? 600 : double.infinity,
-                    ),
-                    margin: EdgeInsets.symmetric(horizontal: cardMargin),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
+              return Container(
+                color: const Color(0xFF0C1A3E), // Warna solid biru tua
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Header Bar
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: responsive.horizontalPadding,
+                          vertical: responsive.verticalPadding,
                         ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(screenWidth * 0.05),
-                      child: Column(
-                        children: [
-                          _buildProfileField(
-                            'Nama',
-                            userProfile!['name'] ?? '',
-                            screenWidth,
-                          ),
-                          SizedBox(height: screenHeight * 0.02),
-                          _buildProfileField(
-                            'Username',
-                            userProfile!['username'] ?? '',
-                            screenWidth,
-                          ),
-                          SizedBox(height: screenHeight * 0.02),
-                          _buildProfileField(
-                            'Email',
-                            userProfile!['email'] ?? '',
-                            screenWidth,
-                          ),
-                          SizedBox(height: screenHeight * 0.02),
-                          _buildProfileField(
-                            'Role',
-                            userProfile!['role'] ?? '',
-                            screenWidth,
-                          ),
-                          SizedBox(height: screenHeight * 0.02),
-                          _buildPasswordField('Password', screenWidth),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: screenHeight * 0.03),
-
-                  // Action Card
-                  Container(
-                    constraints: BoxConstraints(
-                      maxWidth: isTablet ? 600 : double.infinity,
-                    ),
-                    margin: EdgeInsets.symmetric(horizontal: cardMargin),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const EditProfilePage(),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                RoleNavigationHelper.goToDashboard(context);
+                              },
+                              child: Container(
+                                padding: EdgeInsets.all(
+                                  responsive.spacing * 0.6,
                                 ),
-                              );
-                              if (result != null && result['success'] == true) {
-                                _loadProfile();
-                                if (mounted) {
-                                  ScaffoldMessenger.of(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.arrow_back,
+                                  color: Colors.white,
+                                  size: responsive.iconSize,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                'Profile',
+                                style: TextStyle(
+                                  color: Colors.white, // Kembalikan ke putih
+                                  fontSize: responsive.titleFontSize,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            SizedBox(width: responsive.iconSize * 2.4),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: responsive.spacing * 1.5),
+
+                      // Profile Avatar
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 3,
+                          ),
+                        ),
+                        child: CircleAvatar(
+                          radius: responsive.avatarRadius,
+                          backgroundColor: Colors.white.withOpacity(0.1),
+                          backgroundImage:
+                              userProfile?['profile_image'] != null
+                                  ? NetworkImage(
+                                    'http://10.0.2.2:5000/uploads/profiles/${userProfile!['profile_image']}',
+                                  )
+                                  : null,
+                          child:
+                              userProfile?['profile_image'] == null
+                                  ? Icon(
+                                    Icons.person,
+                                    size: responsive.avatarRadius * 1.2,
+                                    color: Colors.white,
+                                  )
+                                  : null,
+                        ),
+                      ),
+
+                      SizedBox(height: responsive.spacing * 1.5),
+
+                      // Profile Info Card
+                      Container(
+                        constraints: BoxConstraints(
+                          maxWidth: responsive.maxCardWidth,
+                        ),
+                        margin: EdgeInsets.symmetric(
+                          horizontal: responsive.cardMargin,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(responsive.spacing * 1.5),
+                          child: Column(
+                            children: [
+                              _buildProfileField(
+                                'Nama',
+                                userProfile!['name'] ?? '',
+                                responsive,
+                              ),
+                              SizedBox(height: responsive.spacing * 0.8),
+                              _buildProfileField(
+                                'Username',
+                                userProfile!['username'] ?? '',
+                                responsive,
+                              ),
+                              SizedBox(height: responsive.spacing * 0.8),
+                              _buildProfileField(
+                                'Email',
+                                userProfile!['email'] ?? '',
+                                responsive,
+                              ),
+                              SizedBox(height: responsive.spacing * 0.8),
+                              _buildProfileField(
+                                'Role',
+                                userProfile!['role'] ?? '',
+                                responsive,
+                              ),
+                              SizedBox(height: responsive.spacing * 0.8),
+                              _buildPasswordField('Password', responsive),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: responsive.spacing),
+
+                      // Action Card
+                      Container(
+                        constraints: BoxConstraints(
+                          maxWidth: responsive.maxCardWidth,
+                        ),
+                        margin: EdgeInsets.symmetric(
+                          horizontal: responsive.cardMargin,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () async {
+                                  final result = await Navigator.push(
                                     context,
-                                  ).clearSnackBars();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Profile updated successfully',
-                                      ),
-                                      backgroundColor: Colors.green,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => const EditProfilePage(),
                                     ),
                                   );
-                                }
-                              }
-                            },
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(16),
-                              topRight: Radius.circular(16),
+                                  if (result != null &&
+                                      result['success'] == true) {
+                                    _loadProfile();
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).clearSnackBars();
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Profile updated successfully',
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(16),
+                                  topRight: Radius.circular(16),
+                                ),
+                                child: _buildActionItem(
+                                  icon: Icons.settings_outlined,
+                                  text: 'Edit Profile',
+                                  color: const Color(0xFF1E3A8A),
+                                  responsive: responsive,
+                                ),
+                              ),
                             ),
-                            child: _buildActionItem(
-                              icon: Icons.settings_outlined,
-                              text: 'Edit Profile',
-                              color: const Color(0xFF1E3A8A),
-                              screenWidth: screenWidth,
+                            Container(
+                              height: 1,
+                              margin: EdgeInsets.symmetric(
+                                horizontal: responsive.spacing,
+                              ),
+                              color: const Color(0xFFE5E7EB),
                             ),
-                          ),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap:
+                                    () =>
+                                        _showSignOutDialog(context, responsive),
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(16),
+                                  bottomRight: Radius.circular(16),
+                                ),
+                                child: _buildActionItem(
+                                  icon: Icons.logout_outlined,
+                                  text: 'Logout',
+                                  color: const Color(0xFFDC2626),
+                                  responsive: responsive,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        Container(
-                          height: 1,
-                          margin: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.04,
-                          ),
-                          color: const Color(0xFFE5E7EB),
-                        ),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap:
-                                () => _showSignOutDialog(context, screenWidth),
-                            borderRadius: const BorderRadius.only(
-                              bottomLeft: Radius.circular(16),
-                              bottomRight: Radius.circular(16),
-                            ),
-                            child: _buildActionItem(
-                              icon: Icons.logout_outlined,
-                              text: 'Logout',
-                              color: const Color(0xFFDC2626),
-                              screenWidth: screenWidth,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
 
-                  SizedBox(height: screenHeight * 0.05),
-                ],
-              ),
-            );
-          },
+                      SizedBox(height: responsive.spacing * 1.5),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  void _showSignOutDialog(BuildContext context, double screenWidth) {
+  void _showSignOutDialog(BuildContext context, ResponsiveValues responsive) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -436,14 +508,14 @@ class _ProfilePageState extends State<ProfilePage> {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: const Color(0xFF1F2937),
-              fontSize: screenWidth * 0.045,
+              fontSize: responsive.titleFontSize * 0.8,
             ),
           ),
           content: Text(
             'Apakah Anda yakin ingin keluar?',
             style: TextStyle(
               color: const Color(0xFF6B7280),
-              fontSize: screenWidth * 0.035,
+              fontSize: responsive.buttonFontSize,
             ),
           ),
           actions: [
@@ -454,7 +526,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(
                   color: const Color(0xFF6B7280),
                   fontWeight: FontWeight.w500,
-                  fontSize: screenWidth * 0.035,
+                  fontSize: responsive.buttonFontSize,
                 ),
               ),
             ),
@@ -462,11 +534,12 @@ class _ProfilePageState extends State<ProfilePage> {
               onPressed: () async {
                 await ApiService.clearSession();
 
-                if (!mounted) return;
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                  (route) => false,
-                );
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                    (route) => false,
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFDC2626),
@@ -480,7 +553,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w500,
-                  fontSize: screenWidth * 0.035,
+                  fontSize: responsive.buttonFontSize,
                 ),
               ),
             ),
@@ -489,4 +562,32 @@ class _ProfilePageState extends State<ProfilePage> {
       },
     );
   }
+}
+
+class ResponsiveValues {
+  final double horizontalPadding;
+  final double verticalPadding;
+  final double avatarRadius;
+  final double cardMargin;
+  final double titleFontSize;
+  final double labelFontSize;
+  final double valueFontSize;
+  final double buttonFontSize;
+  final double iconSize;
+  final double spacing;
+  final double maxCardWidth;
+
+  ResponsiveValues({
+    required this.horizontalPadding,
+    required this.verticalPadding,
+    required this.avatarRadius,
+    required this.cardMargin,
+    required this.titleFontSize,
+    required this.labelFontSize,
+    required this.valueFontSize,
+    required this.buttonFontSize,
+    required this.iconSize,
+    required this.spacing,
+    required this.maxCardWidth,
+  });
 }

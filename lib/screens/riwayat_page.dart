@@ -162,7 +162,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
 
   Widget _buildRiwayatItem(BuildContext context, Map<String, dynamic> item) {
     final tanggal = item["date"] ?? "-";
-    final usageMl = item["total_usage"] ?? 0;
+    final usageMl = double.tryParse(item["total_usage"].toString()) ?? 0.0;
     final usageLiter = usageMl / 1000;
     final jumlah = NumberFormat("#,##0.000", "en_US").format(usageLiter);
 

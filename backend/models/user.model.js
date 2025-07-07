@@ -44,10 +44,6 @@ const User = sequelize.define('User', {
   created_by_admin: {
     type: DataTypes.INTEGER,
     allowNull: true,
-    references: {
-      model: 'users',
-      key: 'id'
-    }
   }
 }, {
   tableName: 'users',
