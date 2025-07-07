@@ -9,12 +9,12 @@ class MQTTService {
   factory MQTTService() => _instance;
   MQTTService._internal();
 
-  final String _server = '96e6c0ae39ae4e31be4222ba62457f96.s1.eu.hivemq.cloud';
+  final String _server = 'fdeedc05bf0145268563e624aa10122c.s1.eu.hivemq.cloud';
   final int _port = 8883;
   final String _clientId =
       'flutter_client_${DateTime.now().millisecondsSinceEpoch}';
-  final String _username = 'irmayani';
-  final String _password = 'Irma123_';
+  final String _username = 'admin123';
+  final String _password = 'Admin123qwe';
 
   // Topics
   final String _sensorTopic = 'livestock/sensor/data';
@@ -166,6 +166,4 @@ class MQTTService {
     });
     await publish('livestock/pump/mode', message);
   }
-
- 
 }

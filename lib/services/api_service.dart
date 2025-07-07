@@ -10,9 +10,9 @@ class ApiService {
   static const String baseUrl = 'http://10.0.2.2:5000/api';
 
   static Map<String, String> get headers => {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
 
   static Future<Map<String, String>> get authHeaders async {
     final token = await getToken();
@@ -53,11 +53,18 @@ class ApiService {
 
   // Get user data
   static Future<Map<String, dynamic>?> getUserData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? userDataString = prefs.getString('user_data');
-    if (userDataString != null) {
-      return json.decode(userDataString);
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userDataString = prefs.getString('user_data');
+
+      if (userDataString != null && userDataString.isNotEmpty) {
+        return json.decode(userDataString) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      // Optional: cetak error untuk debugging
+      print('Gagal mengambil user data: $e');
     }
+
     return null;
   }
 
@@ -369,8 +376,8 @@ class ApiService {
 
       // Kirim request
       final response = await request.send().timeout(
-        const Duration(seconds: 15),
-      );
+            const Duration(seconds: 15),
+          );
       final res = await http.Response.fromStream(response);
 
       if (!res.headers['content-type']!.contains('application/json')) {
