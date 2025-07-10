@@ -7,9 +7,10 @@ import 'mqtt_service.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
+import 'dart:async';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:5000/api';
+  static const String baseUrl = 'http://192.168.1.2:5000/api';
 
   static Map<String, String> get headers => {
     'Content-Type': 'application/json',
@@ -93,7 +94,7 @@ class ApiService {
   ) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
+        Uri.parse('$baseUrl/login'),
         headers: await getHeaders(),
         body: json.encode({'email': email, 'password': password}),
       );
@@ -360,8 +361,9 @@ class ApiService {
         request.fields['password'] = password;
       }
 
-      // Validasi dan kirim file gambar (dengan mime type)
+      // Validasi dan kirim file gambar
       if (profileImage != null) {
+        // Validasi ukuran file
         final fileSize = await profileImage.length();
         if (fileSize > 5 * 1024 * 1024) {
           return {
@@ -370,7 +372,7 @@ class ApiService {
           };
         }
 
-        // Deteksi mime type berdasarkan isi file
+        // Deteksi mime type
         final mimeType = lookupMimeType(profileImage.path);
         if (mimeType == null ||
             !(mimeType == 'image/jpeg' || mimeType == 'image/png')) {
@@ -380,28 +382,68 @@ class ApiService {
           };
         }
 
-        final multipartFile = await http.MultipartFile.fromPath(
-          'profile_image',
-          profileImage.path,
-          contentType: MediaType.parse(mimeType),
+        // Tambahkan file ke request
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'profile_image',
+            profileImage.path,
+            contentType: MediaType.parse(mimeType),
+          ),
         );
-        request.files.add(multipartFile);
       }
 
-      // Kirim request
+      // Kirim request dengan timeout
       final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Waktu permintaan habis. Silakan coba lagi.');
+        },
       );
+
+      // Proses respons
       final response = await http.Response.fromStream(streamedResponse);
+      final responseBody = response.body;
 
-      // Pastikan response JSON
-      if (!response.headers['content-type']!.contains('application/json')) {
-        return {'success': false, 'message': 'Server mengembalikan non-JSON'};
+      // Debugging: Cetak respons untuk inspeksi
+      print('Response Status: ${response.statusCode}');
+      print('Response Headers: ${response.headers}');
+      print('Response Body: $responseBody');
+
+      // Coba parsing JSON, jika gagal kembalikan pesan error yang lebih jelas
+      try {
+        final jsonResponse = json.decode(responseBody);
+        return jsonResponse;
+      } catch (e) {
+        // Jika parsing JSON gagal, tapi status code 200, mungkin server mengembalikan string
+        if (response.statusCode == 200) {
+          return {'success': true, 'message': responseBody};
+        } else {
+          return {
+            'success': false,
+            'message': 'Format respons tidak valid: $responseBody',
+            'statusCode': response.statusCode,
+          };
+        }
       }
-
-      return json.decode(response.body);
     } catch (e) {
-      return {'success': false, 'message': 'Gagal update profil: $e'};
+      // Tangani error yang lebih spesifik
+      if (e is SocketException) {
+        return {
+          'success': false,
+          'message':
+              'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
+        };
+      } else if (e is TimeoutException) {
+        return {
+          'success': false,
+          'message': 'Waktu permintaan habis. Silakan coba lagi.',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Terjadi kesalahan: ${e.toString()}',
+        };
+      }
     }
   }
 
@@ -470,6 +512,9 @@ class ApiService {
   // pump status
   static Future<Map<String, dynamic>> getLatestPumpStatus() async {
     final response = await http.get(Uri.parse('$baseUrl/pump/latest'));
+
+    // Log response body before parsing
+    print('[DEBUG] getLatestPumpStatus response body: ${response.body}');
 
     if (response.statusCode == 200) {
       return json.decode(response.body);

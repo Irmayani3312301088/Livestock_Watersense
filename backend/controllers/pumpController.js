@@ -1,57 +1,64 @@
 const PumpStatus = require('../models/pumpStatusModel');
+const BatasAir = require('../models/batasAirModel');
 
-// Fungsi otomatis berdasarkan level air
 exports.updatePumpAutomatically = async (level_percentage, device_id) => {
-  let newStatus = 'off';
-
-  if (level_percentage <= 30) {
-    newStatus = 'on';
-  } else if (level_percentage >= 95) {
-    newStatus = 'off';
-  }
-
   try {
-    await PumpStatus.create({
-      device_id,
-      mode: 'auto',
-      status: newStatus,
-    });
+    console.log(`🔁 [PumpController] updatePumpAutomatically → device_id=${device_id}, level=${level_percentage}`);
+
+    const batas = await BatasAir.findOne({ where: { device_id } });
+
+    if (!batas) {
+      console.warn(`⚠️ Batas air untuk device_id=${device_id} tidak ditemukan.`);
+      return;
+    }
+
+    console.log(`📊 Batas: atas=${batas.batas_atas}, bawah=${batas.batas_bawah}`);
+
+    let newStatus = 'off';
+
+    if (level_percentage < batas.batas_bawah) {
+      newStatus = 'on';
+    } else if (level_percentage >= batas.batas_atas) {
+      newStatus = 'off';
+    }
+
+    const existing = await PumpStatus.findOne({ where: { device_id } });
+
+    if (existing) {
+      console.log(`🔄 Status pompa sebelumnya: ${existing.status}`);
+
+      if (existing.status !== newStatus) {
+        await existing.update({ status: newStatus, mode: 'auto' });
+        console.log(`✅ [Pump] Status Diperbarui ke: ${newStatus.toUpperCase()}`);
+      } else {
+        console.log('ℹ️ [Pump] Status pompa tetap, tidak ada perubahan.');
+      }
+    } else {
+      await PumpStatus.create({ device_id, status: newStatus, mode: 'auto' });
+      console.log(`🆕 [Pump] Status pompa baru dibuat: ${newStatus.toUpperCase()}`);
+    }
   } catch (err) {
-    console.error('Gagal update status pompa:', err);
+    console.error('❌ Gagal update pompa otomatis:', err.message);
+    throw err;
   }
 };
 
-// Fungsi manual dari admin
-exports.setManualPumpStatus = async (req, res) => {
-  const { device_id, status } = req.body;
-
-  try {
-    await PumpStatus.create({
-      device_id,
-      mode: 'manual',
-      status,
-    });
-
-    res.status(201).json({ message: 'Pompa diatur manual.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Gagal mengatur pompa secara manual.' });
-  }
-};
-
-// Ambil status terakhir pompa
 exports.getLatestPumpStatus = async (req, res) => {
   try {
-    const latest = await PumpStatus.findOne({
+    const data = await PumpStatus.findOne({
       order: [['created_at', 'DESC']],
     });
 
-    if (!latest) {
-      return res.status(404).json({ message: 'Belum ada status pompa.' });
+    if (!data) {
+      return res.status(404).json({ message: 'Status pompa belum ada.' });
     }
 
-    res.status(200).json(latest);
+    res.status(200).json({
+      status: data.status,
+      mode: data.mode,
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Gagal ambil status pompa.' });
+    console.error('❌ Gagal mengambil status pompa:', err);
+    res.status(500).json({ message: 'Gagal mengambil status pompa.' });
   }
 };

@@ -1,24 +1,26 @@
+// File: models/pumpStatusModel.js
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 const PumpStatus = sequelize.define('PumpStatus', {
   device_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-  mode: {
-    type: DataTypes.ENUM('auto', 'manual'),
-    defaultValue: 'auto',
+    allowNull: false
   },
   status: {
-    type: DataTypes.ENUM('on', 'off'),
-    allowNull: false,
+    type: DataTypes.STRING,
+    allowNull: false
   },
+  mode: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'auto'
+  }
 }, {
   tableName: 'pump_status',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: false,
+  updatedAt: false
 });
 
 module.exports = PumpStatus;

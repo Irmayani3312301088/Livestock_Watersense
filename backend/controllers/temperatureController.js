@@ -1,36 +1,34 @@
 const Temperature = require('../models/temperatureModel');
 
-// Simpan data suhu ke database
-exports.sendTemperature = async (req, res) => {
-  const { device_id, temperature } = req.body;
-
-  let status = "Normal";
-  let note = "Suhu dalam batas normal";
-
-  if (temperature >= 38) {
-    status = "Tinggi";
-    note = "Peringatan: Suhu terlalu tinggi!";
-  } else if (temperature < 25) {
-    status = "Rendah";
-    note = "Peringatan: Suhu terlalu rendah!";
-  }
-
+exports.storeTemperature = async (req, res) => {
   try {
-    await Temperature.create({
+    const { device_id, temperature } = req.body;
+
+    let status = 'Normal';
+    let note = 'Suhu dalam batas normal';
+
+    if (temperature < 20) {
+      status = 'Dingin';
+      note = 'Suhu terlalu dingin';
+    } else if (temperature > 35) {
+      status = 'Panas';
+      note = 'Suhu terlalu panas';
+    }
+
+    const data = await Temperature.create({
       device_id,
       temperature,
       status,
-      note,
+      note
     });
 
-    res.status(201).json({ message: "Data suhu berhasil disimpan." });
-  } catch (err) {
-    console.error("Error saat simpan suhu:", err);
-    res.status(500).json({ message: "Gagal menyimpan data suhu." });
+    res.status(201).json({ message: 'Data suhu disimpan', data });
+  } catch (error) {
+    console.error('❌ Gagal menyimpan suhu:', error);
+    res.status(500).json({ message: 'Gagal menyimpan suhu' });
   }
 };
 
-// Ambil suhu terbaru
 exports.getLatestTemperature = async (req, res) => {
   try {
     const latest = await Temperature.findOne({
@@ -38,12 +36,16 @@ exports.getLatestTemperature = async (req, res) => {
     });
 
     if (!latest) {
-      return res.status(404).json({ message: "Belum ada data suhu." });
+      return res.status(404).json({ message: 'Data suhu belum ada.' });
     }
 
-    res.status(200).json(latest);
+    res.status(200).json({
+      temperature: latest.temperature,
+      status: latest.status,
+      note: latest.note,
+    });
   } catch (err) {
-    console.error("Error ambil data suhu:", err);
-    res.status(500).json({ message: "Gagal mengambil data suhu." });
+    console.error('❌ Gagal mengambil data suhu:', err);
+    res.status(500).json({ message: 'Gagal mengambil suhu' });
   }
 };

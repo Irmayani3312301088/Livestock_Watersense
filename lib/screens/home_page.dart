@@ -6,6 +6,7 @@ import 'user_management/user_list_page.dart';
 import 'profile.dart';
 import 'kustom_batas_air_page.dart';
 import '../services/api_service.dart';
+import '../services/mqtt_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,23 +34,56 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
   String? userName;
+  final MQTTService mqttService = MQTTService();
 
-  final List<Widget> _pages = [
-    const DashboardPage(),
-    const RiwayatPage(),
-    const NotifikasiPage(),
-    const ProfilePage(),
-  ];
+  double? currentTemperature;
+  double? currentHumidity;
+  String? pumpStatus;
+  double? waterLevel;
+
+  late List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-
     _loadUserProfile();
+    _connectToMqtt();
+    _pages = [
+      DashboardPage(mqttService: mqttService),
+      const RiwayatPage(),
+      const NotifikasiPage(),
+      const ProfilePage(),
+    ];
+  }
+
+  Future<void> _connectToMqtt() async {
+    try {
+      await mqttService.connect();
+      mqttService.sensorDataStream.listen((data) {
+        setState(() {
+          currentTemperature = data['temperature'];
+          currentHumidity = data['humidity'];
+        });
+      });
+      mqttService.pumpStatusStream.listen((data) {
+        setState(() {
+          pumpStatus = data['status'];
+        });
+      });
+      mqttService.waterLevelStream.listen((data) {
+        setState(() {
+          waterLevel = data['level'];
+        });
+      });
+      mqttService.livestockDataStream.listen((data) {});
+    } catch (e) {
+      print('Error connecting to MQTT: $e');
+    }
   }
 
   @override
   void dispose() {
+    mqttService.disconnect();
     super.dispose();
   }
 
@@ -96,10 +130,15 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
+class DashboardPage extends StatefulWidget {
+  final MQTTService mqttService;
+  const DashboardPage({super.key, required this.mqttService});
 
-  // Helper method untuk responsive breakpoints
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
   DeviceType _getDeviceType(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     if (screenWidth < 360) return DeviceType.small;
@@ -108,7 +147,6 @@ class DashboardPage extends StatelessWidget {
     return DeviceType.extraLarge;
   }
 
-  // Helper method untuk responsive padding
   EdgeInsets _getResponsivePadding(DeviceType deviceType) {
     switch (deviceType) {
       case DeviceType.small:
@@ -122,7 +160,6 @@ class DashboardPage extends StatelessWidget {
     }
   }
 
-  // Helper method untuk responsive text size
   double _getResponsiveFontSize(DeviceType deviceType, TextSizeType type) {
     switch (type) {
       case TextSizeType.title:
@@ -186,7 +223,7 @@ class DashboardPage extends StatelessWidget {
     final double avatarSize =
         deviceType == DeviceType.small
             ? 22
-            : (deviceType == DeviceType.medium ? 26 : 30);
+            : (deviceType == DeviceType.medium ? 26 : 30); //ini terkahir
 
     return SingleChildScrollView(
       padding: _getResponsivePadding(deviceType),
@@ -329,8 +366,19 @@ class DashboardPage extends StatelessWidget {
                 );
               }
 
-              final suhu = snapshot.data!['temperature'].toString();
+              final suhu =
+                  snapshot.data!['temperature']?.toStringAsFixed(1) ?? '-';
+              final status = snapshot.data!['status'] ?? '-';
               final note = snapshot.data!['note'] ?? '-';
+
+              Color backgroundColor;
+              if (status == 'Panas') {
+                backgroundColor = Colors.red[100]!;
+              } else if (status == 'Dingin') {
+                backgroundColor = Colors.deepPurple[100]!;
+              } else {
+                backgroundColor = Colors.blue[50]!;
+              }
 
               return Container(
                 padding: EdgeInsets.all(
@@ -739,8 +787,9 @@ class DashboardPage extends StatelessWidget {
   Widget _buildPumpStatusCard(DeviceType deviceType) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: FutureBuilder<Map<String, dynamic>>(
-        future: ApiService.getLatestPumpStatus(),
+      child: StreamBuilder<Map<String, dynamic>>(
+        stream: widget.mqttService.pumpStatusStream,
+        initialData: {'status': 'off', 'mode': 'auto'},
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Padding(
@@ -773,9 +822,10 @@ class DashboardPage extends StatelessWidget {
           }
 
           final data = snapshot.data!;
-          final status = data['status'] == 'on' ? 'Hidup' : 'Mati';
+          final statusRaw = data['status']?.toString().toLowerCase();
+          final status = statusRaw == 'on' ? 'Hidup' : 'Mati';
           final mode = data['mode'] == 'auto' ? 'Otomatis' : 'Manual';
-
+          final updatedAt = data['updated_at'];
           final iconColor = status == 'Hidup' ? Colors.green : Colors.red;
 
           return Container(

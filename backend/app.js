@@ -24,20 +24,20 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Registrasi route
+// Registrasi semua route
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/profile', profileRoutes); 
+app.use('/api/profile', profileRoutes);
 app.post('/api/activate-user', userController.activateUser);
 app.use('/api/temperature', temperatureRoutes);
-app.use('/api/water-level', waterLevelRoutes);
+app.use('/api/water-level', waterLevelRoutes);         // ⬅️ ini penting
 app.use('/api/pump', pumpRoutes);
 app.use('/api/water-usage', waterUsageRoutes);
-app.use('/api', notificationRoutes);
 app.use('/api/batas-air', batasAirRoutes);
+app.use('/api', notificationRoutes);
 app.use('/api', manualPumpRoutes);
-app.use('/auth', authRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 // Jalankan server
 (async () => {

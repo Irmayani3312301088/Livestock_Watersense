@@ -14,8 +14,8 @@ class _KustomBatasAirPageState extends State<KustomBatasAirPage> {
   int batasBawah = 10;
   bool isLoading = false;
 
-  final int rekomendasiAtas = 20;
-  final int rekomendasiBawah = 100;
+  final int rekomendasiAtas = 5;
+  final int rekomendasiBawah = 20;
 
   // Generate list of values from 0 to 200
   List<int> get valueList => List.generate(201, (index) => index);
@@ -69,7 +69,7 @@ class _KustomBatasAirPageState extends State<KustomBatasAirPage> {
   }
 
   Future<void> _konfirmasi() async {
-    if (batasAtas <= batasBawah) {
+    if (batasAtas >= batasBawah) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -78,7 +78,7 @@ class _KustomBatasAirPageState extends State<KustomBatasAirPage> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Batas ketinggian harus lebih tinggi dari batas kerendahan!',
+                  'Batas atas harus lebih dekat dari batas bawah (dalam satuan cm)!',
                 ),
               ),
             ],
