@@ -1,5 +1,6 @@
 const mqtt = require('mqtt');
 const axios = require('axios');
+const { savePumpStatus } = require('./pumpController');
 
 // 1. Konfigurasi yang Lebih Robust
 const brokerUrl = 'mqtts://fdeedc05bf0145268563e624aa10122c.s1.eu.hivemq.cloud:8883'; // SSL/TLS port
@@ -73,6 +74,10 @@ client.on('message', async (topic, payload) => {
         await handleSensorData(data);
         break;
         
+      case topic === topics.pumpStatus:
+        await handlePumpStatus(data);
+        break;
+        
       case topic.includes('request-config'):
         console.log('⚙️ Config request received');
         break;
@@ -135,6 +140,21 @@ async function handleSensorData(data) {
   });
 
   console.log('✅ Sensor data processed');
+}
+
+async function handlePumpStatus(data) {
+  if (!data.status || !data.mode || !data.timestamp) {
+    throw new Error('Invalid pump status payload');
+  }
+
+  await savePumpStatus({
+    device_id: 1, // atau sesuaikan jika kamu punya banyak device
+    status: data.status,
+    mode: data.mode,
+    timestamp: data.timestamp,
+  });
+
+  console.log('✅ Pump status saved to database');
 }
 
 // 11. Graceful Shutdown

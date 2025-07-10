@@ -1,6 +1,19 @@
 const PumpStatus = require('../models/pumpStatusModel');
 const BatasAir = require('../models/batasAirModel');
 
+const savePumpStatus = async ({ device_id, status, mode, timestamp }) => {
+  try {
+    await PumpStatus.create({
+      device_id,
+      status,
+      mode,
+      recorded_at: timestamp, // pastikan model punya kolom ini
+    });
+  } catch (error) {
+    console.error('❌ Failed to save pump status:', error.message);
+  }
+};
+
 exports.updatePumpAutomatically = async (level_percentage, device_id) => {
   try {
     console.log(`🔁 [PumpController] updatePumpAutomatically → device_id=${device_id}, level=${level_percentage}`);
@@ -61,4 +74,10 @@ exports.getLatestPumpStatus = async (req, res) => {
     console.error('❌ Gagal mengambil status pompa:', err);
     res.status(500).json({ message: 'Gagal mengambil status pompa.' });
   }
+};
+
+module.exports = {
+  savePumpStatus,
+  updatePumpAutomatically: exports.updatePumpAutomatically,
+  getLatestPumpStatus: exports.getLatestPumpStatus,
 };

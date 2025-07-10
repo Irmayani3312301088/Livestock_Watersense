@@ -787,9 +787,8 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildPumpStatusCard(DeviceType deviceType) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: StreamBuilder<Map<String, dynamic>>(
-        stream: widget.mqttService.pumpStatusStream,
-        initialData: {'status': 'off', 'mode': 'auto'},
+      child: FutureBuilder<Map<String, dynamic>>(
+        future: ApiService.getLatestPumpStatus(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Padding(
@@ -825,7 +824,6 @@ class _DashboardPageState extends State<DashboardPage> {
           final statusRaw = data['status']?.toString().toLowerCase();
           final status = statusRaw == 'on' ? 'Hidup' : 'Mati';
           final mode = data['mode'] == 'auto' ? 'Otomatis' : 'Manual';
-          final updatedAt = data['updated_at'];
           final iconColor = status == 'Hidup' ? Colors.green : Colors.red;
 
           return Container(

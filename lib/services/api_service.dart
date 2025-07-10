@@ -10,7 +10,7 @@ import 'package:mime/mime.dart';
 import 'dart:async';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.2:5000/api';
+  static const String baseUrl = 'http://10.0.2.2:5000/api';
 
   static Map<String, String> get headers => {
     'Content-Type': 'application/json',
@@ -94,7 +94,7 @@ class ApiService {
   ) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/login'),
+        Uri.parse('$baseUrl/auth/login'), // ⬅️ Tambahkan '/auth' manual
         headers: await getHeaders(),
         body: json.encode({'email': email, 'password': password}),
       );
@@ -108,6 +108,7 @@ class ApiService {
 
       return data;
     } catch (e) {
+      print('Login error: $e');
       return {'success': false, 'message': 'Koneksi error: $e'};
     }
   }
