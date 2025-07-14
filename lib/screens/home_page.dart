@@ -209,6 +209,81 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Widget buildPumpModeControl(
+    BuildContext context, {
+    required DeviceType deviceType,
+    required bool isAutoMode,
+    required Function(bool) onChanged,
+  }) {
+    double containerHeight =
+        deviceType == DeviceType.small
+            ? 60
+            : deviceType == DeviceType.medium
+            ? 70
+            : 80;
+
+    return Container(
+      width: double.infinity,
+      height: containerHeight,
+      padding: EdgeInsets.symmetric(
+        horizontal: deviceType == DeviceType.small ? 12 : 16,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.orange,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.settings_suggest,
+            color: Colors.white,
+            size: _getResponsiveFontSize(deviceType, TextSizeType.title),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Mode Pompa",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: _getResponsiveFontSize(
+                      deviceType,
+                      TextSizeType.body,
+                    ),
+                  ),
+                ),
+                Text(
+                  isAutoMode ? "Otomatis" : "Manual",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: _getResponsiveFontSize(
+                      deviceType,
+                      TextSizeType.caption,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: isAutoMode,
+            onChanged: onChanged,
+            activeColor: Colors.white,
+            activeTrackColor: Colors.green,
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: Colors.blueGrey,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final deviceType = _getDeviceType(context);
@@ -223,7 +298,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final double avatarSize =
         deviceType == DeviceType.small
             ? 22
-            : (deviceType == DeviceType.medium ? 26 : 30); //ini terkahir
+            : (deviceType == DeviceType.medium ? 26 : 30);
 
     return SingleChildScrollView(
       padding: _getResponsivePadding(deviceType),
@@ -390,9 +465,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
                 child:
                     isTablet
-                        ?
-                        // Tablet layout - horizontal
-                        Row(
+                        ? Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
@@ -445,9 +518,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                           ],
                         )
-                        :
-                        // Mobile layout - horizontal with centered alignment
-                        Row(
+                        : Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
@@ -581,11 +652,43 @@ class _DashboardPageState extends State<DashboardPage> {
                       );
                     },
                   ),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: ApiService.getLatestPumpStatus(),
+                    builder: (context, snapshot) {
+                      bool isAutoMode = true;
+                      if (snapshot.connectionState == ConnectionState.done &&
+                          snapshot.hasData &&
+                          snapshot.data != null) {
+                        isAutoMode = snapshot.data!['mode'] == 'auto';
+                      }
+
+                      return buildPumpModeControl(
+                        context,
+                        deviceType: deviceType,
+                        isAutoMode: isAutoMode,
+                        onChanged: (bool newMode) async {
+                          try {
+                            String modeStr = newMode ? 'auto' : 'manual';
+                            await ApiService.setPumpMode(modeStr);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Mode pompa berhasil diubah'),
+                              ),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Gagal mengubah mode pompa'),
+                              ),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  ),
                 ],
               )
-              :
-              // Column layout untuk mobile
-              Column(
+              : Column(
                 children: [
                   buildMenuItem(
                     context,
@@ -635,6 +738,41 @@ class _DashboardPageState extends State<DashboardPage> {
                         MaterialPageRoute(
                           builder: (context) => KustomBatasAirPage(deviceId: 1),
                         ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<Map<String, dynamic>>(
+                    future: ApiService.getLatestPumpStatus(),
+                    builder: (context, snapshot) {
+                      bool isAutoMode = true;
+                      if (snapshot.connectionState == ConnectionState.done &&
+                          snapshot.hasData &&
+                          snapshot.data != null) {
+                        isAutoMode = snapshot.data!['mode'] == 'auto';
+                      }
+
+                      return buildPumpModeControl(
+                        context,
+                        deviceType: deviceType,
+                        isAutoMode: isAutoMode,
+                        onChanged: (bool newMode) async {
+                          try {
+                            String modeStr = newMode ? 'auto' : 'manual';
+                            await ApiService.setPumpMode(modeStr);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Mode pompa berhasil diubah'),
+                              ),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Gagal mengubah mode pompa'),
+                              ),
+                            );
+                          }
+                        },
                       );
                     },
                   ),

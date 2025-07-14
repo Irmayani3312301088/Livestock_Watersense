@@ -10,6 +10,21 @@ import 'package:mime/mime.dart';
 import 'dart:async';
 
 class ApiService {
+  // Set pump mode (auto/manual)
+  static Future<bool> setPumpMode(String mode) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/pump/set-mode'),
+        headers: await getHeaders(),
+        body: json.encode({'mode': mode}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Gagal mengubah mode pompa: $e');
+      return false;
+    }
+  }
+
   static const String baseUrl = 'http://10.0.2.2:5000/api';
 
   static Map<String, String> get headers => {
