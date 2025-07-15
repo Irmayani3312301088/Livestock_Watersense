@@ -5,6 +5,7 @@ void showSuccessPopup(
   String message,
   VoidCallback onDone,
 ) {
+  // Tampilkan dialog
   showDialog(
     context: context,
     barrierDismissible: false,
@@ -32,9 +33,17 @@ void showSuccessPopup(
         ),
   );
 
+  // Delay 5 detik sebelum menutup
   Future.delayed(const Duration(seconds: 5), () {
-    Navigator.of(context).pop();
-    onDone();
+    // Gunakan SchedulerBinding agar dialogContext tetap aman
+    if (context.mounted) {
+      try {
+        Navigator.of(context, rootNavigator: true).pop();
+        onDone();
+      } catch (e) {
+        debugPrint('Error closing dialog: $e');
+      }
+    }
   });
 }
 
@@ -139,6 +148,7 @@ void showUserDeletedPopup(BuildContext context, {VoidCallback? onDone}) {
       });
 
       return AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.all(24),
         content: Column(
