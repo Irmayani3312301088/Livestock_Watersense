@@ -5,6 +5,9 @@ const Notification = sequelize.define('Notification', {
   title: {
     type: DataTypes.STRING,
     allowNull: false,
+    validate: {
+      len: [1, 255],
+    },
   },
   message: {
     type: DataTypes.TEXT,
@@ -15,15 +18,18 @@ const Notification = sequelize.define('Notification', {
     allowNull: false,
   },
   is_read: {
-  type: DataTypes.BOOLEAN,
-  defaultValue: false,
-}
-
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
 }, {
   tableName: 'notifications',
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: false,
+  indexes: [
+    { fields: ['created_at'] },
+    { fields: ['is_read'] },
+  ],
 });
 
 module.exports = Notification;
