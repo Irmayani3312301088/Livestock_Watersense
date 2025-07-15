@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import 'home_page.dart';
 import 'regis_page.dart';
 import 'user_dashboard.dart';
+import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -486,8 +487,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                       TextButton(
                                         onPressed: () {
                                           HapticFeedback.selectionClick();
-                                          // Handle forgot password
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder:
+                                                  (_) =>
+                                                      const ForgotPasswordPage(),
+                                            ),
+                                          );
                                         },
+
                                         style: TextButton.styleFrom(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 8,
@@ -745,6 +754,11 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         return null;
                       },
                       decoration: InputDecoration(
+                        hintText: hintText,
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: isTablet ? 16 : 14,
+                        ),
                         filled: true,
                         fillColor:
                             focusNode.hasFocus

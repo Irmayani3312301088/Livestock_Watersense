@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../services/api_service.dart';
 
 class UserAddPage extends StatefulWidget {
   const UserAddPage({Key? key}) : super(key: key);
@@ -192,20 +193,16 @@ class _UserAddPageState extends State<UserAddPage> {
         // Simulate API call
         await Future.delayed(const Duration(seconds: 2));
 
-        // Uncomment when ApiService is available
-        // final result = await ApiService.createUser(
-        //   name: _nameController.text,
-        //   username: _usernameController.text,
-        //   email: _emailController.text,
-        //   password: _passwordController.text,
-        //   role: _selectedRole,
-        //   profileImage: _selectedImage,
-        // );
+        final result = await ApiService.createUser(
+          name: _nameController.text,
+          username: _usernameController.text,
+          email: _emailController.text,
+          password: _passwordController.text,
+          role: _selectedRole,
+          profileImage: _selectedImage,
+        );
 
         Navigator.of(context).pop();
-
-        // Simulate success
-        final Map<String, dynamic> result = {'success': true};
 
         if (result['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -276,10 +273,14 @@ class _UserAddPageState extends State<UserAddPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed:
-                        () => Navigator.of(
-                          context,
-                        ).popUntil((route) => route.isFirst),
+                    onPressed: () {
+                      Navigator.pop(context); // tutup dialog
+                      Navigator.pop(
+                        context,
+                        true,
+                      ); // keluar dari halaman dan kirim hasil
+                    },
+
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0C1A3E),
                       padding: EdgeInsets.symmetric(
@@ -487,7 +488,7 @@ class _UserAddPageState extends State<UserAddPage> {
           ),
           SizedBox(height: _isTablet ? 24 : 16),
           Text(
-            'Upload Foto Profile',
+            'Upload Foto Profil',
             style: TextStyle(
               fontSize: _isTablet ? 18 : 16,
               fontWeight: FontWeight.w600,

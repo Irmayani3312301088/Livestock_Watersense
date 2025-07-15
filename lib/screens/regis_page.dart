@@ -356,7 +356,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                       ),
                     ),
 
-                    // Title 
+                    // Title
                     Center(
                       child: Padding(
                         padding: EdgeInsets.only(
@@ -459,8 +459,8 @@ class _SignUpScreenState extends State<SignUpScreen>
                                 isTablet: isTablet,
                               ),
                               _buildTextField(
-                                label: "Username",
-                                hintText: "Masukkan username",
+                                label: "Nama Pengguna",
+                                hintText: "Masukkan nama pengguna",
                                 controller: _usernameController,
                                 focusNode: _usernameFocus,
                                 nextFocus: _emailFocus,

@@ -287,7 +287,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                             Expanded(
                               child: Text(
-                                'Profile',
+                                'Profil',
                                 style: TextStyle(
                                   color: Colors.white, // Kembalikan ke putih
                                   fontSize: responsive.titleFontSize,
@@ -364,7 +364,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               ),
                               SizedBox(height: responsive.spacing * 0.8),
                               _buildProfileField(
-                                'Username',
+                                'Nama pengguna',
                                 userProfile!['username'] ?? '',
                                 responsive,
                               ),
@@ -381,7 +381,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 responsive,
                               ),
                               SizedBox(height: responsive.spacing * 0.8),
-                              _buildPasswordField('Password', responsive),
+                              _buildPasswordField('Kata Sandi', responsive),
                             ],
                           ),
                         ),
@@ -433,7 +433,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ).showSnackBar(
                                         const SnackBar(
                                           content: Text(
-                                            'Profile updated successfully',
+                                            'Profil berhasil diperbarui',
                                           ),
                                           backgroundColor: Colors.green,
                                         ),
@@ -447,7 +447,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 child: _buildActionItem(
                                   icon: Icons.settings_outlined,
-                                  text: 'Edit Profile',
+                                  text: 'Edit Profil',
                                   color: const Color(0xFF1E3A8A),
                                   responsive: responsive,
                                 ),
@@ -472,7 +472,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 child: _buildActionItem(
                                   icon: Icons.logout_outlined,
-                                  text: 'Logout',
+                                  text: 'Keluar',
                                   color: const Color(0xFFDC2626),
                                   responsive: responsive,
                                 ),
@@ -500,6 +500,7 @@ class _ProfilePageState extends State<ProfilePage> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -514,7 +515,7 @@ class _ProfilePageState extends State<ProfilePage> {
           content: Text(
             'Apakah Anda yakin ingin keluar?',
             style: TextStyle(
-              color: const Color(0xFF6B7280),
+              color: Colors.black,
               fontSize: responsive.buttonFontSize,
             ),
           ),
@@ -524,7 +525,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Text(
                 'Batal',
                 style: TextStyle(
-                  color: const Color(0xFF6B7280),
+                  color: Colors.black,
                   fontWeight: FontWeight.w500,
                   fontSize: responsive.buttonFontSize,
                 ),

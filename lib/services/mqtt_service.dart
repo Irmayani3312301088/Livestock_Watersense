@@ -55,7 +55,7 @@ class MQTTService {
   Future<void> connect() async {
     if (_client != null &&
         _client!.connectionStatus?.state == MqttConnectionState.connected) {
-      debugPrint('⚠️ MQTT already connected');
+      debugPrint(' MQTT already connected');
       return;
     }
 
@@ -75,7 +75,7 @@ class MQTTService {
       _client!.onDisconnected = _onDisconnected;
       _client!.onConnected = _onConnected;
       _client!.onSubscribed = (topic) {
-        debugPrint('📌 Subscribed to topic: $topic');
+        debugPrint(' Subscribed to topic: $topic');
       };
 
       final connMess = MqttConnectMessage()
@@ -94,18 +94,18 @@ class MQTTService {
 
       if (_client!.connectionStatus?.state != MqttConnectionState.connected) {
         throw Exception(
-          '❌ MQTT failed to connect: ${_client!.connectionStatus}',
+          ' MQTT failed to connect: ${_client!.connectionStatus}',
         );
       }
 
-      debugPrint('✅✅✅ Connected to MQTT Broker');
+      debugPrint(' Connected to MQTT Broker');
       _isConnected = true;
       _connectionStatusController.add(true);
 
       await _subscribeToTopics();
       _setupMessageListener();
     } catch (e) {
-      debugPrint('❌ MQTT Connection Error: $e');
+      debugPrint(' MQTT Connection Error: $e');
       _client?.disconnect();
       _isConnected = false;
       _connectionStatusController.add(false);
@@ -137,7 +137,7 @@ class MQTTService {
         _routeMessage(topic, payload);
       },
       onError: (error) {
-        debugPrint('❌ Message stream error: $error');
+        debugPrint(' Message stream error: $error');
       },
     );
   }
@@ -148,7 +148,7 @@ class MQTTService {
       final payloadBytes = publishMessage.payload.message;
       return MqttPublishPayload.bytesToStringAsString(payloadBytes);
     } catch (e) {
-      debugPrint('❌ Payload parsing error: $e');
+      debugPrint(' Payload parsing error: $e');
       return '{}';
     }
   }
@@ -171,30 +171,30 @@ class MQTTService {
             _livestockDataController.add(data);
             break;
           default:
-            debugPrint('⚠️ Unknown topic: $topic');
+            debugPrint(' Unknown topic: $topic');
         }
       }
     } catch (e) {
-      debugPrint('❌ JSON decode error: $e\nPayload: $payload');
+      debugPrint(' JSON decode error: $e\nPayload: $payload');
     }
   }
 
   void _onConnected() {
-    debugPrint('🔥 onConnected callback triggered!');
+    debugPrint(' onConnected callback triggered!');
     _isConnected = true;
     _connectionStatusController.add(true);
   }
 
   void _onDisconnected() {
-    debugPrint('🔌 MQTT Disconnected');
+    debugPrint(' MQTT Disconnected');
     _isConnected = false;
     _connectionStatusController.add(false);
     Timer(const Duration(seconds: 5), () async {
-      debugPrint('🔁 Trying to reconnect...');
+      debugPrint(' Trying to reconnect...');
       try {
         await connect();
       } catch (e) {
-        debugPrint('❌ Reconnect failed: $e');
+        debugPrint(' Reconnect failed: $e');
       }
     });
   }

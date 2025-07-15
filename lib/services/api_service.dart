@@ -71,18 +71,11 @@ class ApiService {
 
   // Get user data
   static Future<Map<String, dynamic>?> getUserData() async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? userDataString = prefs.getString('user_data');
-
-      if (userDataString != null && userDataString.isNotEmpty) {
-        return json.decode(userDataString) as Map<String, dynamic>;
-      }
-    } catch (e) {
-      // Optional: cetak error untuk debugging
-      print('Gagal mengambil user data: $e');
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? userDataString = prefs.getString('user_data');
+    if (userDataString != null) {
+      return json.decode(userDataString);
     }
-
     return null;
   }
 
@@ -109,7 +102,7 @@ class ApiService {
   ) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'), // ⬅️ Tambahkan '/auth' manual
+        Uri.parse('$baseUrl/auth/login'),
         headers: await getHeaders(),
         body: json.encode({'email': email, 'password': password}),
       );
@@ -123,7 +116,6 @@ class ApiService {
 
       return data;
     } catch (e) {
-      print('Login error: $e');
       return {'success': false, 'message': 'Koneksi error: $e'};
     }
   }
@@ -184,39 +176,54 @@ class ApiService {
     File? profileImage,
   }) async {
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/users'));
+      var uri = Uri.parse('$baseUrl/users');
+      var request = http.MultipartRequest('POST', uri);
 
-      // Header otentikasi
+      // Ambil token dan set Authorization
       String? token = await getToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
+      } else {
+        return {
+          'success': false,
+          'message': 'Token tidak ditemukan. Harap login ulang.',
+        };
       }
 
-      // Field data
+      // Set field yang wajib
       request.fields['name'] = name;
       request.fields['email'] = email;
-      request.fields['password'] = password; // ← ini bagian penting
+      request.fields['password'] = password;
       request.fields['role'] = role;
+
+      // Field opsional
       if (username != null && username.isNotEmpty) {
         request.fields['username'] = username;
       }
 
+      // Tambahkan foto jika ada
       if (profileImage != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath('profile_image', profileImage.path),
-        );
+        final mimeType = lookupMimeType(profileImage.path);
+        if (mimeType != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'profile',
+              profileImage.path,
+              contentType: MediaType.parse(mimeType),
+            ),
+          );
+        }
       }
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-      final data = json.decode(response.body);
 
-      print('Create User Response Status: ${response.statusCode}');
-      print('Create User Response Body: ${response.body}');
+      print('[DEBUG] Create User Status Code: ${response.statusCode}');
+      print('[DEBUG] Create User Response: ${response.body}');
 
-      return data;
+      return json.decode(response.body);
     } catch (e) {
-      print('Create User Error: $e');
+      print('[ERROR] createUser: $e');
       return {'success': false, 'message': 'Koneksi error: $e'};
     }
   }
@@ -231,41 +238,63 @@ class ApiService {
     File? profileImage,
   }) async {
     try {
-      var request = http.MultipartRequest(
-        'PUT',
-        Uri.parse('$baseUrl/users/$userId'),
-      );
+      var uri = Uri.parse('$baseUrl/users/$userId');
+      var request = http.MultipartRequest('PUT', uri);
 
-      // Add headers
+      // Tambahkan token
       String? token = await getToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      // Add fields
+      // Isi field
       request.fields['name'] = name;
       request.fields['email'] = email;
       if (username != null) request.fields['username'] = username;
       if (role != null) request.fields['role'] = role;
 
-      // Add file if exists
+      // Upload gambar jika ada
       if (profileImage != null) {
         request.files.add(
           await http.MultipartFile.fromPath('profile_image', profileImage.path),
         );
       }
 
+      // Kirim request
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
+      // Debug respons (sementara)
+      print('[UPDATE USER] Status: ${response.statusCode}');
+      print('[UPDATE USER] Body: ${response.body}');
+
+      // Cek apakah response JSON
+      final contentType = response.headers['content-type'] ?? '';
+      if (!contentType.contains('application/json')) {
+        return {
+          'success': false,
+          'message': 'Server mengirim non-JSON:\n${response.body}',
+        };
+      }
+
+      // Cek status sukses
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        return {
+          'success': false,
+          'message':
+              'Gagal update user. Kode: ${response.statusCode}\n${response.body}',
+        };
+      }
+
+      // Parse JSON aman
       return json.decode(response.body);
     } catch (e) {
-      return {'success': false, 'message': 'Koneksi error: $e'};
+      return {'success': false, 'message': 'Terjadi kesalahan saat update: $e'};
     }
   }
 
   // Delete user
-  static Future<Map<String, dynamic>> deleteUser(int userId) async {
+  static Future<Map<String, dynamic>> deleteUser(String userId) async {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/users/$userId'),
@@ -274,7 +303,7 @@ class ApiService {
 
       return json.decode(response.body);
     } catch (e) {
-      return {'success': false, 'message': 'Koneksi error: $e'};
+      return {'success': false, 'message': 'Gagal menghapus user: $e'};
     }
   }
 
@@ -377,9 +406,8 @@ class ApiService {
         request.fields['password'] = password;
       }
 
-      // Validasi dan kirim file gambar
+      // Validasi dan kirim file gambar (dengan mime type)
       if (profileImage != null) {
-        // Validasi ukuran file
         final fileSize = await profileImage.length();
         if (fileSize > 5 * 1024 * 1024) {
           return {
@@ -388,7 +416,7 @@ class ApiService {
           };
         }
 
-        // Deteksi mime type
+        // Deteksi mime type berdasarkan isi file
         final mimeType = lookupMimeType(profileImage.path);
         if (mimeType == null ||
             !(mimeType == 'image/jpeg' || mimeType == 'image/png')) {
@@ -398,68 +426,28 @@ class ApiService {
           };
         }
 
-        // Tambahkan file ke request
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'profile_image',
-            profileImage.path,
-            contentType: MediaType.parse(mimeType),
-          ),
+        final multipartFile = await http.MultipartFile.fromPath(
+          'profile_image',
+          profileImage.path,
+          contentType: MediaType.parse(mimeType),
         );
+        request.files.add(multipartFile);
       }
 
-      // Kirim request dengan timeout
+      // Kirim request ke server
       final streamedResponse = await request.send().timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          throw Exception('Waktu permintaan habis. Silakan coba lagi.');
-        },
+        const Duration(seconds: 15),
       );
-
-      // Proses respons
       final response = await http.Response.fromStream(streamedResponse);
-      final responseBody = response.body;
 
-      // Debugging: Cetak respons untuk inspeksi
-      print('Response Status: ${response.statusCode}');
-      print('Response Headers: ${response.headers}');
-      print('Response Body: $responseBody');
-
-      // Coba parsing JSON, jika gagal kembalikan pesan error yang lebih jelas
-      try {
-        final jsonResponse = json.decode(responseBody);
-        return jsonResponse;
-      } catch (e) {
-        // Jika parsing JSON gagal, tapi status code 200, mungkin server mengembalikan string
-        if (response.statusCode == 200) {
-          return {'success': true, 'message': responseBody};
-        } else {
-          return {
-            'success': false,
-            'message': 'Format respons tidak valid: $responseBody',
-            'statusCode': response.statusCode,
-          };
-        }
+      // Pastikan response JSON
+      if (!response.headers['content-type']!.contains('application/json')) {
+        return {'success': false, 'message': 'Server mengembalikan non-JSON'};
       }
+
+      return json.decode(response.body);
     } catch (e) {
-      // Tangani error yang lebih spesifik
-      if (e is SocketException) {
-        return {
-          'success': false,
-          'message':
-              'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.',
-        };
-      } else if (e is TimeoutException) {
-        return {
-          'success': false,
-          'message': 'Waktu permintaan habis. Silakan coba lagi.',
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Terjadi kesalahan: ${e.toString()}',
-        };
-      }
+      return {'success': false, 'message': 'Gagal update profil: $e'};
     }
   }
 
@@ -714,6 +702,82 @@ class ApiService {
     } catch (e) {
       print('Error sending to MQTT: $e');
       throw Exception('Failed to send MQTT message: $e');
+    }
+  }
+
+  //OTP
+  static Future<Map<String, dynamic>> sendOtp(String email) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/forgot-password'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(const Duration(seconds: 10)); // <--- ⏱ batasi waktu
+
+      final data = json.decode(response.body);
+      return data;
+    } on TimeoutException {
+      return {'success': false, 'message': 'Timeout: Server lambat, coba lagi'};
+    } catch (e) {
+      return {'success': false, 'message': 'Gagal kirim OTP: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> resetPasswordWithOtp(
+    String email,
+    String otp,
+    String newPassword,
+  ) async {
+    try {
+      final payload = {'email': email, 'otp': otp, 'newPassword': newPassword};
+      print('Payload: $payload');
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/reset-password'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      print('Response: ${response.body}');
+      final responseData = jsonDecode(response.body);
+
+      return {
+        'success': response.statusCode == 200,
+        'message':
+            responseData['message'] ??
+            (response.statusCode == 200
+                ? 'Password berhasil direset'
+                : 'Gagal reset password'),
+        'data': responseData,
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'Request timeout, coba lagi ya',
+        'data': null,
+      };
+    } on FormatException {
+      return {
+        'success': false,
+        'message': 'Format data tidak valid',
+        'data': null,
+      };
+    } on http.ClientException catch (e) {
+      return {
+        'success': false,
+        'message': 'Jaringan error: ${e.message}',
+        'data': null,
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Error ga jelas nih: ${e.toString()}',
+        'data': null,
+      };
     }
   }
 }

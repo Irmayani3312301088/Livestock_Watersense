@@ -39,52 +39,69 @@ class _RiwayatPageState extends State<RiwayatPage> {
   }
 
   Future<void> exportRiwayatToPdf(List<Map<String, dynamic>> data) async {
-    final pdf = pw.Document();
+    try {
+      if (data.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Data kosong, tidak bisa ekspor PDF.")),
+        );
+        return;
+      }
 
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
-          return pw.Container(
-            color: PdfColors.white,
-            padding: const pw.EdgeInsets.all(20),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Riwayat Penggunaan Air',
-                  style: pw.TextStyle(
-                    fontSize: 24,
-                    fontWeight: pw.FontWeight.bold,
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Container(
+              padding: const pw.EdgeInsets.all(20),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Riwayat Penggunaan Air',
+                    style: pw.TextStyle(
+                      fontSize: 24,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
-                ),
-                pw.SizedBox(height: 16),
-                pw.Table.fromTextArray(
-                  headers: ['Tanggal', 'Penggunaan (L)'],
-                  data:
-                      data.map((item) {
-                        final tanggal = _formatTanggal(item['date'] ?? '-');
-                        final usageMl = item['total_usage'] ?? 0;
-                        final usageLiter = usageMl / 1000;
-                        final total = usageLiter.toStringAsFixed(3);
-                        return [tanggal, total];
-                      }).toList(),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+                  pw.SizedBox(height: 16),
+                  pw.Table.fromTextArray(
+                    headers: ['Tanggal', 'Penggunaan (L)'],
+                    data:
+                        data.map((item) {
+                          final tanggal = item['date']?.toString() ?? '-';
+                          final usageMl =
+                              double.tryParse(item['total_usage'].toString()) ??
+                              0.0;
+                          final usageLiter = usageMl / 1000;
+                          final total = usageLiter.toStringAsFixed(3);
+                          return [tanggal, total];
+                        }).toList(),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-    );
+      final bytes = await pdf.save();
+      await Printing.layoutPdf(onLayout: (format) async => bytes);
+    } catch (e) {
+      debugPrint(" Error saat ekspor PDF: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Gagal mengekspor PDF. Silakan coba lagi."),
+        ),
+      );
+    }
   }
 
   String _formatTanggal(String tanggal) {
     try {
-      final date = DateTime.parse(tanggal);
+      final date = DateTime.tryParse(tanggal);
+      if (date == null) return tanggal;
       return "${date.day.toString().padLeft(2, '0')} ${_namaBulan(date.month)} ${date.year}";
     } catch (_) {
       return tanggal;
