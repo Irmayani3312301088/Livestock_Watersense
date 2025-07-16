@@ -38,12 +38,12 @@ class _UserListPageState extends State<UserListPage> {
 
   // Fungsi untuk mengambil data users dari backend
   Future<void> _fetchUsers() async {
+    print(' Mengambil data user dari backend...');
     try {
       setState(() {
         isLoading = true;
       });
 
-      // Ambil token dari storage (sesuaikan dengan implementasi auth Anda)
       String? token = await _getAuthToken();
 
       final response = await http.get(
@@ -53,6 +53,9 @@ class _UserListPageState extends State<UserListPage> {
           'Authorization': 'Bearer $token',
         },
       );
+
+      print(' Status code: ${response.statusCode}');
+      print(' Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -77,14 +80,23 @@ class _UserListPageState extends State<UserListPage> {
             _filterUsers();
             isLoading = false;
           });
+          print(' Data berhasil di-load');
+        } else {
+          print(' Backend success = false: ${data['message']}');
+          _showErrorSnackBar(data['message'] ?? 'Gagal ambil data user');
+          setState(() {
+            isLoading = false;
+          });
         }
       } else {
+        print(' Gagal: Status code bukan 200');
         _showErrorSnackBar('Gagal mengambil data pengguna');
         setState(() {
           isLoading = false;
         });
       }
     } catch (e) {
+      print(' Error: $e');
       _showErrorSnackBar('Error: ${e.toString()}');
       setState(() {
         isLoading = false;
@@ -98,8 +110,7 @@ class _UserListPageState extends State<UserListPage> {
       MaterialPageRoute(builder: (context) => const UserAddPage()),
     );
 
-    if (result != null) {
-      // Refresh data setelah menambah user
+    if (result == true) {
       _fetchUsers();
     }
   }
@@ -222,6 +233,8 @@ class _UserListPageState extends State<UserListPage> {
             backgroundColor: Colors.green,
           ),
         );
+
+        // Penting! Panggil fetch lagi agar UI diperbarui
         _fetchUsers();
       } else {
         _showErrorSnackBar(data['message'] ?? 'Gagal mengaktifkan user');

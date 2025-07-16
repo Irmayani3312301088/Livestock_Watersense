@@ -30,13 +30,13 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Tambahkan data user ke objek request
+    // Tambahkan role agar bisa dicek di isAdmin
     req.user = {
-    id: user.id,
-    name: user.name,
-    email: user.email,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role, 
     };
-
 
     next();
   } catch (error) {

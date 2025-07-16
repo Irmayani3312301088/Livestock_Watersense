@@ -301,13 +301,13 @@ class _UserEditPageState extends State<UserEditPage> {
   void _showSimpleSuccessDialog(Map<String, dynamic> responseData) {
     showAutoCloseSuccessPopup(
       context,
-      'User berhasil\ndisimpan!',
+      'Data Berhasil\ndiperbarui!',
       onDone: () {
         // Kembali ke halaman sebelumnya dengan data
         Navigator.of(context).pop({
           'success': true,
           'data': responseData['data'],
-          'message': responseData['message'] ?? 'User berhasil disimpan!',
+          'message': responseData['message'] ?? 'Data Berhasil diPerbarui',
         });
       },
       durationSeconds: 2,
@@ -486,7 +486,7 @@ class _UserEditPageState extends State<UserEditPage> {
 
             // Upload Info
             Text(
-              'Upload Foto Profile',
+              'Upload Foto Profil',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,

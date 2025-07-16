@@ -22,26 +22,33 @@ router.get('/', getAllUsers);
 router.get('/:id', getUserById);
 
 // POST create user by admin
-router.post('/', upload.single('profile_image'), createUserByAdmin);
+router.post(
+  '/',
+  verifyToken,
+  isAdmin,
+  upload.single('profile_image'),
+  createUserByAdmin
+);
 
 // PUT update user
-router.put('/:id', upload.single('profile_image'), updateUser);
+router.put(
+  '/:id',
+  verifyToken,
+  isAdmin,
+  upload.single('profile_image'),
+  updateUser
+);
 
-// DELETE user
-router.delete('/users/:id', verifyToken, deleteUser);
+// DELETE user (1x saja, jangan ganda)
+router.delete('/:id', verifyToken, deleteUser);
 
-// POST check email exists
+// Check email & username
 router.post('/check-email', checkEmailExists);
-
-// POST check username exists
 router.post('/check-username', checkUsernameExists);
 
-// POST activate user
-console.log('[Router] userRoutes.js loaded');
-router.post('/activate-user', (req, res, next) => {
-  console.log('Route HIT: POST /api/users/activate-user');
-  next();
-}, activateUser);
+// Aktivasi user oleh admin
+router.post('/activate-user', verifyToken, activateUser);
 
+console.log('[Router] userRoutes.js loaded');
 
 module.exports = router;

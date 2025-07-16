@@ -168,13 +168,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       children: [
                         _buildImageSourceOption(
                           icon: Icons.camera_alt,
-                          label: 'Camera',
+                          label: 'Kamera',
                           onTap:
                               () => Navigator.pop(context, ImageSource.camera),
                         ),
                         _buildImageSourceOption(
                           icon: Icons.photo_library,
-                          label: 'Gallery',
+                          label: 'Galeri',
                           onTap:
                               () => Navigator.pop(context, ImageSource.gallery),
                         ),
@@ -262,24 +262,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("Delete Photo"),
+            title: const Text("Hapus foto"),
             content: const Text(
-              "Are you sure you want to delete your profile photo?",
+              "Apakah Anda yakin ingin menghapus foto profil Anda?",
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
+                child: const Text("Batal"),
               ),
               TextButton(
                 onPressed: () async {
                   Navigator.pop(context);
                   await _deleteProfilePhoto();
                 },
-                child: const Text(
-                  "Delete",
-                  style: TextStyle(color: Colors.red),
-                ),
+                child: const Text("Hapus", style: TextStyle(color: Colors.red)),
               ),
             ],
           ),
@@ -405,7 +402,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          "Upload Profile Photo",
+                          "Upload Foto Profil",
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -423,7 +420,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         ElevatedButton.icon(
                           onPressed: _pickImage,
                           icon: const Icon(Icons.photo_library, size: 16),
-                          label: const Text("Select Photo"),
+                          label: const Text("Pilih Foto"),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0C1A3E),
                             foregroundColor: Colors.white,
@@ -446,7 +443,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             size: 18,
                           ),
                           label: const Text(
-                            "Delete Profile Photo",
+                            "Hapus Foto Profil",
                             style: TextStyle(color: Colors.red, fontSize: 13),
                           ),
                         ),
@@ -457,9 +454,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   const SizedBox(height: 24),
 
                   _buildFormField(
-                    label: "Full Name *",
+                    label: "Nama Lengkap",
                     controller: _nameController,
-                    hint: "Enter your full name",
+                    hint: "Masukkan nama lengkap Anda",
                     icon: Icons.person_outline,
                     validator: _validateName,
                   ),
@@ -467,18 +464,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   const SizedBox(height: 16),
 
                   _buildFormField(
-                    label: "Username",
+                    label: "Nama pengguna",
                     controller: _usernameController,
-                    hint: "Enter username",
+                    hint: "Masukkan nama pengguna",
                     icon: Icons.alternate_email,
                   ),
 
                   const SizedBox(height: 16),
 
                   _buildFormField(
-                    label: "Email *",
+                    label: "Email",
                     controller: _emailController,
-                    hint: "Enter email",
+                    hint: "Masukkan email",
                     icon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
                     validator: _validateEmail,
@@ -540,7 +537,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "Password",
+                        "Kata Sandi",
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -549,7 +546,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "Leave empty if you don't want to change password",
+                        "Biarkan kosong jika Anda tidak ingin mengubah kata sandi",
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
@@ -567,7 +564,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           obscureText: _obscurePassword,
                           validator: _validatePassword,
                           decoration: InputDecoration(
-                            hintText: "Enter new password",
+                            hintText: "Masukkan kata sandi baru",
                             hintStyle: TextStyle(color: Colors.grey.shade500),
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
@@ -621,7 +618,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             ),
                           ),
                           child: const Text(
-                            "Cancel",
+                            "Batal",
                             style: TextStyle(
                               color: Colors.grey,
                               fontWeight: FontWeight.w600,
@@ -656,7 +653,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                     ),
                                   )
                                   : const Text(
-                                    "Save Changes",
+                                    "Simpan Perubahan",
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 15,
@@ -725,7 +722,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Please check your input data"),
+          content: Text("Silakan periksa data input Anda"),
           backgroundColor: Colors.orange,
         ),
       );
@@ -755,7 +752,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       if (response['success'] == true || response['status'] == 'success') {
         if (mounted) {
-          showSuccessPopup(context, "Profile updated successfully!", () {
+          showSuccessPopup(context, "Profil berhasil diperbarui!", () {
             Navigator.of(context, rootNavigator: true).pop();
             Future.delayed(const Duration(milliseconds: 300), () {
               if (mounted) {

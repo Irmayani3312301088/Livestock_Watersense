@@ -40,6 +40,6 @@ exports.getAllNotifications = async (req, res) => {
     res.status(200).json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Gagal ambil notifikasi.' });
+    res.status(500).json({ message: 'Gagal Mengambil Notifikasi.' });
   }
 };

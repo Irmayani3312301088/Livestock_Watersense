@@ -74,7 +74,8 @@ const getUserById = async (req, res) => {
 // CREATE user by admin 
 const createUserByAdmin = async (req, res) => {
   try {
-    const { name, username, email, role = 'peternak', password } = req.body;
+    let { name, username, email, role = 'peternak', password } = req.body;
+role = role.toLowerCase();
     const adminId = req.user?.id; 
 
     console.log('Create User Request Body:', req.body);
@@ -132,7 +133,7 @@ const createUserByAdmin = async (req, res) => {
     if (!password || password.length < 8) {
       return res.status(400).json({
         success: false,
-        message: 'Password wajib diisi minimal 8 karakter.'
+        message: 'Kata Sandi wajib diisi minimal 8 karakter.'
       });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -178,6 +179,7 @@ const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, username, email, role } = req.body;
+    
 
     const user = await User.findByPk(id);
     if (!user) {
@@ -259,13 +261,17 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Tambahkan logging ID
+    console.log('DELETE request masuk, ID:', id);
+
     const user = await User.findByPk(id);
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+      return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' });
     }
 
-    // Hapus foto profil 
+    // Hapus foto profil jika ada
     if (user.profile_image) {
       const imagePath = path.join('uploads/profiles/', user.profile_image);
       if (fs.existsSync(imagePath)) {
@@ -274,12 +280,16 @@ const deleteUser = async (req, res) => {
     }
 
     await user.destroy();
-    res.json({ success: true, message: 'Pengguna berhasil dihapus.' });
+
+    return res.json({ success: true, message: 'Pengguna berhasil dihapus.' });
+
   } catch (err) {
+    // Tambahkan log error detail
     console.error('Delete User Error:', err);
-    res.status(500).json({ success: false, message: 'Gagal hapus pengguna.' });
+    return res.status(500).json({ success: false, message: 'Gagal hapus pengguna.' });
   }
 };
+
 
 
 // ADDED: Check email exists
@@ -339,12 +349,12 @@ const activateUser = async (req, res) => {
 
     const user = await User.findByPk(id);
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+      return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' });
     }
 
     await user.update({ status: 'active' });
 
-    return res.status(200).json({ success: true, message: 'User berhasil diaktifkan.' });
+    return res.status(200).json({ success: true, message: 'Pengguna berhasil diaktifkan.' });
   } catch (error) {
     console.error('Activate User Error:', error.message);
     return res.status(500).json({ success: false, message: 'Server error.' });
