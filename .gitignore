@@ -18,8 +18,10 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# VS Code
-.vscode/
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -31,55 +33,13 @@ migrate_working_dir/
 .pub/
 /build/
 
-# Android Studio
-/android/app/debug/
-/android/app/profile/
-/android/app/release/
-/android/.gradle/
-/android/.idea/
-/*.jks
-
-# Obfuscation/Symbolication
+# Symbolication related
 app.*.symbols
+
+# Obfuscation related
 app.*.map.json
 
-# Android build outputs
-/android/app/debug/
-/android/app/profile/
-/android/app/release/
-
-# Node.js / Backend
-backend/node_modules/
-backend/package-lock.json
-backend/uploads/
-
-# Frontend node_modules (if any)
-node_modules/
-package-lock.json
-
-# Firebase/Google Services
-android/app/google-services.json
-ios/Runner/GoogleService-Info.plist
-
-# Node.js/Express/NPM/Yarn
-backend/node_modules/
-backend/package-lock.json
-backend/yarn.lock
-backend/.env
-backend/uploads/
-backend/.next/
-
-# Global node_modules + lock file
-node_modules/
-package-lock.json
-yarn.lock
-.env
-
-# Test/Coverage
-coverage/
-test-results/
-jest-report/
-
-/node_modules/
-/package-lock.json
-
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
