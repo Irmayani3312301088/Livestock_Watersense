@@ -79,9 +79,27 @@ exports.updatePumpAutomatically = async (level, deviceId = 1) => {
   }
 };
 
+// Simpan status pompa dari MQTT ke database
+exports.savePumpStatus = async ({ device_id, status, mode, timestamp }) => {
+  try {
+    await PumpStatus.create({
+      device_id,
+      status: status.toUpperCase(),
+      mode: mode.toLowerCase(),
+      created_at: new Date(timestamp),
+    });
+
+    console.log(`💾 Status pompa disimpan: ${status} | Mode: ${mode} | Waktu: ${timestamp}`);
+  } catch (err) {
+    console.error('❌ Gagal menyimpan status pompa:', err.message);
+    throw err;
+  }
+};
+
 // Ekspor semua fungsi controller
 module.exports = {
   setPumpMode: exports.setPumpMode,
   getLatestPumpStatus: exports.getLatestPumpStatus,
   updatePumpAutomatically: exports.updatePumpAutomatically,
+  savePumpStatus: exports.savePumpStatus,
 };
