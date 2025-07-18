@@ -909,7 +909,7 @@ class _UserEditPageState extends State<UserEditPage> {
       ),
       items: const [
         DropdownMenuItem(value: 'admin', child: Text('Admin')),
-        DropdownMenuItem(value: 'user', child: Text('User')),
+        DropdownMenuItem(value: 'user', child: Text('Peternak')),
       ],
       onChanged: (value) {
         setState(() {

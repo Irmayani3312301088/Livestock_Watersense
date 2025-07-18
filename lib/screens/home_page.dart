@@ -139,6 +139,28 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  Future<Map<String, dynamic>>? _pumpStatusFuture;
+
+  bool? isAutoMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _pumpStatusFuture = ApiService.getLatestPumpStatus();
+    _loadInitialPumpMode();
+  }
+
+  void _loadInitialPumpMode() async {
+    try {
+      final data = await ApiService.getLatestPumpStatus();
+      setState(() {
+        isAutoMode = data['mode'] == 'auto';
+      });
+    } catch (e) {
+      print('Gagal ambil data mode pompa: $e');
+    }
+  }
+
   DeviceType _getDeviceType(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     if (screenWidth < 360) return DeviceType.small;
@@ -275,9 +297,10 @@ class _DashboardPageState extends State<DashboardPage> {
             value: isAutoMode,
             onChanged: onChanged,
             activeColor: Colors.white,
-            activeTrackColor: Colors.green,
+            activeTrackColor: isAutoMode ? Colors.green : Colors.red,
             inactiveThumbColor: Colors.white,
-            inactiveTrackColor: Colors.blueGrey,
+            inactiveTrackColor:
+                isAutoMode ? Colors.green : Colors.red.withOpacity(0.7),
           ),
         ],
       ),
@@ -653,9 +676,8 @@ class _DashboardPageState extends State<DashboardPage> {
                     },
                   ),
                   FutureBuilder<Map<String, dynamic>>(
-                    future: ApiService.getLatestPumpStatus(),
+                    future: _pumpStatusFuture,
                     builder: (context, snapshot) {
-                      bool isAutoMode = true;
                       if (snapshot.connectionState == ConnectionState.done &&
                           snapshot.hasData &&
                           snapshot.data != null) {
@@ -665,11 +687,18 @@ class _DashboardPageState extends State<DashboardPage> {
                       return buildPumpModeControl(
                         context,
                         deviceType: deviceType,
-                        isAutoMode: isAutoMode,
+                        isAutoMode: isAutoMode ?? true,
                         onChanged: (bool newMode) async {
                           try {
                             String modeStr = newMode ? 'auto' : 'manual';
                             await ApiService.setPumpMode(modeStr);
+
+                            setState(() {
+                              isAutoMode = newMode;
+                              _pumpStatusFuture =
+                                  ApiService.getLatestPumpStatus();
+                            });
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Mode pompa berhasil diubah'),
@@ -743,9 +772,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 12),
                   FutureBuilder<Map<String, dynamic>>(
-                    future: ApiService.getLatestPumpStatus(),
+                    future: _pumpStatusFuture,
                     builder: (context, snapshot) {
-                      bool isAutoMode = true;
                       if (snapshot.connectionState == ConnectionState.done &&
                           snapshot.hasData &&
                           snapshot.data != null) {
@@ -755,11 +783,19 @@ class _DashboardPageState extends State<DashboardPage> {
                       return buildPumpModeControl(
                         context,
                         deviceType: deviceType,
-                        isAutoMode: isAutoMode,
+                        isAutoMode: isAutoMode ?? true,
                         onChanged: (bool newMode) async {
                           try {
                             String modeStr = newMode ? 'auto' : 'manual';
                             await ApiService.setPumpMode(modeStr);
+
+                            setState(() {
+                              isAutoMode =
+                                  newMode; // ini yang bikin Switch berubah
+                              _pumpStatusFuture =
+                                  ApiService.getLatestPumpStatus();
+                            });
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Mode pompa berhasil diubah'),

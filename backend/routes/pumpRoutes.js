@@ -5,7 +5,7 @@ const pumpController = require('../controllers/pumpController');
 // GET status pompa terbaru
 router.get('/latest', pumpController.getLatestPumpStatus);
 
-// 🚫 Hapus router.post jika belum dipakai
-// router.post('/', ...)
+// POST untuk set mode pompa (auto/manual)
+router.post('/set-mode', pumpController.setPumpMode);
 
 module.exports = router;

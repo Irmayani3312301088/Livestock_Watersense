@@ -552,7 +552,18 @@ class ApiService {
 
   // notification
   static Future<List<NotificationItem>> getAllNotifications() async {
-    final response = await http.get(Uri.parse('$baseUrl/notifications'));
+    final token = await getToken(); // 
+    final response = await http.get(
+      Uri.parse('$baseUrl/notifications'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token', // 
+      },
+    );
+
+    // debug
+    print(' Status: ${response.statusCode}');
+    print(' Body: ${response.body}');
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
@@ -573,6 +584,9 @@ class ApiService {
       body: json.encode({'title': title, 'message': message, 'type': type}),
     );
 
+    print('POST Notif - Status Code: ${response.statusCode}');
+    print('POST Notif - Body: ${response.body}');
+
     if (response.statusCode != 201) {
       throw Exception('Gagal mengirim notifikasi');
     }
@@ -580,6 +594,10 @@ class ApiService {
 
   static Future<void> deleteAllNotifications() async {
     final response = await http.delete(Uri.parse('$baseUrl/notifications'));
+
+    print('DELETE Notif - Status Code: ${response.statusCode}');
+    print('DELETE Notif - Body: ${response.body}');
+
     if (response.statusCode != 200) {
       throw Exception('Gagal menghapus semua notifikasi');
     }
@@ -589,6 +607,10 @@ class ApiService {
     final response = await http.patch(
       Uri.parse('$baseUrl/notifications/read-all'),
     );
+
+    print('PATCH Notif - Status Code: ${response.statusCode}');
+    print('PATCH Notif - Body: ${response.body}');
+
     if (response.statusCode != 200) {
       throw Exception('Gagal menandai semua notifikasi');
     }
@@ -710,11 +732,11 @@ class ApiService {
     try {
       final response = await http
           .post(
-            Uri.parse('$baseUrl/auth/forgot-password'),
+            Uri.parse('$baseUrl/forgot-password/send-otp'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'email': email}),
           )
-          .timeout(const Duration(seconds: 10)); // <--- ⏱ batasi waktu
+          .timeout(const Duration(seconds: 10));
 
       final data = json.decode(response.body);
       return data;
@@ -736,7 +758,7 @@ class ApiService {
 
       final response = await http
           .post(
-            Uri.parse('$baseUrl/auth/reset-password'),
+            Uri.parse('$baseUrl/forgot-password/reset-password'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(payload),
           )

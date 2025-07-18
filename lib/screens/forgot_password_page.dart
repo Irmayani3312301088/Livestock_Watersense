@@ -11,6 +11,7 @@ class ForgotPasswordPage extends StatefulWidget {
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final TextEditingController _emailController = TextEditingController();
+  bool _isLoading = false;
 
   bool _isValidEmail(String email) {
     return RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email);
@@ -26,6 +27,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       return;
     }
 
+    setState(() => _isLoading = true);
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -33,37 +36,27 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     );
 
     try {
-      final res = await ApiService.sendOtp(email).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          Navigator.pop(context); // tutup loading
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Timeout: Server tidak merespons')),
-          );
-          return {'success': false};
-        },
-      );
+      final res = await ApiService.sendOtp(email);
 
-      if (context.mounted) Navigator.pop(context); // pastikan tutup loading
+      if (!mounted) return;
+      Navigator.pop(context); // tutup loading
+      setState(() => _isLoading = false);
 
       if (res['success']) {
-        if (context.mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => OtpVerificationPage(email: email),
-            ),
-          );
-        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => OtpVerificationPage(email: email)),
+        );
       } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Gagal kirim OTP')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message'] ?? 'Gagal kirim OTP')),
+        );
       }
     } catch (e) {
-      if (context.mounted) Navigator.pop(context);
+      if (!mounted) return;
+      Navigator.pop(context);
+      setState(() => _isLoading = false);
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Terjadi error: ${e.toString()}')));
@@ -87,7 +80,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(onPressed: _sendOtp, child: const Text("Kirim OTP")),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _sendOtp,
+              child: const Text("Kirim OTP"),
+            ),
           ],
         ),
       ),

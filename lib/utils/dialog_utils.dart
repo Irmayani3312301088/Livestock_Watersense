@@ -11,6 +11,7 @@ void showSuccessPopup(
     barrierDismissible: false,
     builder:
         (_) => AlertDialog(
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -72,6 +73,7 @@ void showAutoCloseSuccessPopup(
       return WillPopScope(
         onWillPop: () async => false,
         child: AlertDialog(
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -116,6 +118,7 @@ void showDeletePhotoSuccessPopup(BuildContext context, {VoidCallback? onDone}) {
       });
 
       return AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.all(24),
         content: Column(

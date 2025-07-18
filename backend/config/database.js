@@ -1,4 +1,4 @@
-const { Sequelize } = require('sequelize');
+const { Sequelize, DataTypes } = require('sequelize');
 require('dotenv').config();
 
 const sequelize = new Sequelize(
@@ -23,6 +23,9 @@ const sequelize = new Sequelize(
   }
 );
 
+// Model import
+const OtpToken = require('../models/OtpToken')(sequelize, DataTypes);
+
 async function testConnection() {
   try {
     await sequelize.authenticate();
@@ -34,4 +37,8 @@ async function testConnection() {
   }
 }
 
-module.exports = { sequelize, testConnection };
+module.exports = {
+  sequelize,
+  testConnection,
+  OtpToken
+};

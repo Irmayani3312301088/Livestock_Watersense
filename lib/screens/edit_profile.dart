@@ -19,7 +19,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _profileImageUrl;
 
   final List<Map<String, String>> roleOptions = [
-    {'label': 'User', 'value': 'user'},
+    {'label': 'Peternak', 'value': 'user'},
     {'label': 'Admin', 'value': 'admin'},
   ];
   String? _selectedRole = "user";
@@ -155,7 +155,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       ),
                     ),
                     const Text(
-                      'Select Image Source',
+                      'Pilih Sumber Gambar',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -203,7 +203,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Image selected successfully'),
+            content: const Text('Gambar berhasil dipilih'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -262,6 +262,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       context: context,
       builder:
           (context) => AlertDialog(
+            backgroundColor: Colors.white,
             title: const Text("Hapus foto"),
             content: const Text(
               "Apakah Anda yakin ingin menghapus foto profil Anda?",
@@ -269,14 +270,36 @@ class _EditProfilePageState extends State<EditProfilePage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Batal"),
+                child: const Text(
+                  "Batal",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
               TextButton(
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
                 onPressed: () async {
                   Navigator.pop(context);
                   await _deleteProfilePhoto();
                 },
-                child: const Text("Hapus", style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  "Hapus",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),

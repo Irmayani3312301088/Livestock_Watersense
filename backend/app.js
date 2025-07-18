@@ -17,6 +17,7 @@ const waterUsageRoutes = require('./routes/waterUsageRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const batasAirRoutes = require('./routes/batasAirRoutes');
 const manualPumpRoutes = require('./routes/manualPumpRoutes');
+const forgotPasswordRoutes = require('./routes/forgotPasswordRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -37,7 +38,7 @@ app.use('/api/batas-air', batasAirRoutes);
 app.use('/api', notificationRoutes);
 app.use('/api', manualPumpRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use('/api/forgot-password', forgotPasswordRoutes);
 
 // Jalankan server
 (async () => {

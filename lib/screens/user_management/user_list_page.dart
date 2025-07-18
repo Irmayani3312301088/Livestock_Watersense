@@ -159,6 +159,16 @@ class _UserListPageState extends State<UserListPage> {
                 ),
               ),
               TextButton(
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
                 onPressed: () async {
                   Navigator.pop(context);
                   await _performDelete(user['id']);
@@ -166,7 +176,7 @@ class _UserListPageState extends State<UserListPage> {
                 child: const Text(
                   'Hapus',
                   style: TextStyle(
-                    color: Colors.black,
+                    color: Colors.white,
                     fontWeight: FontWeight.w600,
                   ),
                 ),

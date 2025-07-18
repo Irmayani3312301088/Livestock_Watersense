@@ -14,12 +14,15 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   final TextEditingController otpController = TextEditingController();
   final TextEditingController passController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   Future<void> _resetPassword() async {
     if (!_formKey.currentState!.validate()) return;
 
     final otp = otpController.text.trim();
     final newPass = passController.text.trim();
+
+    setState(() => _isLoading = true);
 
     showDialog(
       context: context,
@@ -32,21 +35,11 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
         widget.email,
         otp,
         newPass,
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          if (mounted) Navigator.pop(context); // tutup loading
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Timeout: Server tidak merespon')),
-            );
-          }
-          return {'success': false, 'message': 'Timeout'};
-        },
       );
 
       if (!mounted) return;
       Navigator.pop(context); // tutup loading
+      setState(() => _isLoading = false);
 
       if (res['success']) {
         otpController.clear();
@@ -63,8 +56,10 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
         );
       }
     } catch (e) {
-      if (mounted) Navigator.pop(context);
       if (mounted) {
+        Navigator.pop(context);
+        setState(() => _isLoading = false);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Terjadi error: ${e.toString()}')),
         );
@@ -101,7 +96,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
               TextFormField(
                 controller: otpController,
                 keyboardType: TextInputType.number,
-                maxLength: 6, // <- Ubah sesuai OTP backend kamu
+                maxLength: 6,
                 decoration: const InputDecoration(
                   labelText: "Kode OTP",
                   prefixIcon: Icon(Icons.security),
@@ -150,7 +145,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.check),
                   label: const Text("Reset Password"),
-                  onPressed: _resetPassword,
+                  onPressed: _isLoading ? null : _resetPassword,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     textStyle: const TextStyle(fontSize: 16),
