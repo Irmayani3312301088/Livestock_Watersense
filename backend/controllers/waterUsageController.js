@@ -3,7 +3,6 @@ const { Op } = require('sequelize');
 const WaterUsage = require('../models/waterUsageModel');
 
 // Ambil total penggunaan air hari ini
- 
 const getTodayUsage = async (req, res) => {
   try {
     const startOfDay = new Date();
@@ -25,21 +24,27 @@ const getTodayUsage = async (req, res) => {
     });
 
     const total = result?.total_usage ?? 0;
-    res.status(200).json({ today_usage: total });
+
+    res.status(200).json({
+      success: true,
+      data: total
+    });
   } catch (error) {
     console.error('Gagal ambil data penggunaan air hari ini:', error);
-    res.status(500).json({ message: 'Gagal ambil data hari ini.' });
+    res.status(500).json({
+      success: false,
+      message: 'Gagal ambil data hari ini.'
+    });
   }
 };
 
 // Tambah atau update penggunaan air hari ini berdasarkan device
-
 const sendWaterUsage = async (req, res) => {
   const { device_id, usage_ml } = req.body;
 
   try {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalisasi ke awal hari
+    today.setHours(0, 0, 0, 0);
 
     const [record, created] = await WaterUsage.findOrCreate({
       where: {
@@ -57,18 +62,22 @@ const sendWaterUsage = async (req, res) => {
     }
 
     res.status(201).json({
+      success: true,
       message: created
         ? 'Data baru penggunaan air ditambahkan.'
-        : 'Penggunaan air hari ini diperbarui.'
+        : 'Penggunaan air hari ini diperbarui.',
+      data: record
     });
   } catch (error) {
     console.error('Gagal menyimpan penggunaan air:', error);
-    res.status(500).json({ message: 'Gagal menyimpan penggunaan air.' });
+    res.status(500).json({
+      success: false,
+      message: 'Gagal menyimpan penggunaan air.'
+    });
   }
 };
 
 // Ambil riwayat penggunaan air 7 hari terakhir
- 
 const getDailyUsageHistory = async (req, res) => {
   try {
     const result = await WaterUsage.findAll({
@@ -81,14 +90,19 @@ const getDailyUsageHistory = async (req, res) => {
       limit: 7
     });
 
-    res.status(200).json(result);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
   } catch (error) {
     console.error('Gagal ambil riwayat penggunaan air:', error);
-    res.status(500).json({ message: 'Gagal ambil riwayat penggunaan air.' });
+    res.status(500).json({
+      success: false,
+      message: 'Gagal ambil riwayat penggunaan air.'
+    });
   }
 };
 
-// Export semua fungsi
 module.exports = {
   getTodayUsage,
   sendWaterUsage,

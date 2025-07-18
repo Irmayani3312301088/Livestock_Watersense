@@ -1,5 +1,6 @@
 const ManualPump = require('../models/manualPumpModel');
 const PumpStatus = require('../models/pumpStatusModel');
+const LevelAir = require('../models/levelAirModel');
 
 // Ambil status pompa (GET)
 exports.getStatusPompa = async (req, res) => {
@@ -87,5 +88,21 @@ exports.getLogPompaManual = async (req, res) => {
     res.status(200).json(data);
   } catch (err) {
     res.status(500).json({ message: 'Gagal ambil histori', error: err.message });
+  }
+};
+
+exports.getLevelAirTerakhir = async (req, res) => {
+  try {
+    const latest = await LevelAir.findOne({
+      order: [['createdAt', 'DESC']],
+    });
+
+    if (!latest) {
+      return res.status(404).json({ message: 'Data level air tidak ditemukan' });
+    }
+
+    res.status(200).json({ level_air: latest.level_air });
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal mengambil level air', error: err.message });
   }
 };

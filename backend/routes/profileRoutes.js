@@ -5,7 +5,7 @@ const { verifyToken } = require('../middleware/authMiddleware');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const User = require('../models/user.model'); 
+const User = require('../models/userModel'); 
 
 // Konfigurasi penyimpanan gambar profil
 const storage = multer.diskStorage({

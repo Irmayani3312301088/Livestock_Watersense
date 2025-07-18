@@ -14,4 +14,7 @@ router.get('/status-pompa', manualPumpController.getStatusPompa);
 // Ubah status pompa (on/off)
 router.post('/ubah-status-pompa', manualPumpController.ubahStatusPompa);
 
+// Ambil data level air terbaru
+router.get('/level-air-terakhir', manualPumpController.getLevelAirTerakhir);
+
 module.exports = router;

@@ -1,6 +1,6 @@
 const PumpStatus = require('../models/pumpStatusModel');
 
-// Mengatur mode pompa (auto / manual)
+// ✅ 1. Mengatur mode pompa (auto / manual)
 exports.setPumpMode = async (req, res) => {
   try {
     const { mode } = req.body;
@@ -26,7 +26,7 @@ exports.setPumpMode = async (req, res) => {
   }
 };
 
-// Mengambil status pompa terbaru
+// ✅ 2. Mengambil status pompa terbaru
 exports.getLatestPumpStatus = async (req, res) => {
   try {
     const data = await PumpStatus.findOne({
@@ -47,7 +47,7 @@ exports.getLatestPumpStatus = async (req, res) => {
   }
 };
 
-// Update status pompa secara otomatis berdasarkan level air dan device
+// ✅ 3. Update status pompa secara otomatis berdasarkan level air dan mode
 exports.updatePumpAutomatically = async (level, deviceId = 1) => {
   try {
     const latestStatus = await PumpStatus.findOne({
@@ -79,9 +79,26 @@ exports.updatePumpAutomatically = async (level, deviceId = 1) => {
   }
 };
 
-// Ekspor semua fungsi controller
+// ✅ 4. Menyimpan status pompa baru dari MQTT
+exports.savePumpStatus = async (data) => {
+  try {
+    await PumpStatus.create({
+      device_id: data.device_id,
+      status: data.status,
+      mode: data.mode,
+      created_at: data.timestamp || new Date().toISOString()
+    });
+
+    console.log('💾 Status pompa berhasil disimpan ke DB');
+  } catch (error) {
+    console.error('❌ Gagal menyimpan status pompa:', error.message);
+  }
+};
+
+// ✅ 5. Ekspor semua fungsi controller
 module.exports = {
   setPumpMode: exports.setPumpMode,
   getLatestPumpStatus: exports.getLatestPumpStatus,
   updatePumpAutomatically: exports.updatePumpAutomatically,
+  savePumpStatus: exports.savePumpStatus, // Penting untuk MQTT
 };

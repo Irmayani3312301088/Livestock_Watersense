@@ -2,7 +2,7 @@ const mqtt = require('mqtt');
 const axios = require('axios');
 const { savePumpStatus } = require('./pumpController');
 
-// 1. Konfigurasi
+// MQTT Konfigurasi
 const brokerUrl = 'mqtts://fdeedc05bf0145268563e624aa10122c.s1.eu.hivemq.cloud:8883';
 const options = {
   clientId: `livestock_backend_${Math.random().toString(16).substr(2, 8)}`,
@@ -12,76 +12,58 @@ const options = {
   reconnectPeriod: 5000,
   connectTimeout: 10000,
   keepalive: 30,
-  rejectUnauthorized: false
+  rejectUnauthorized: false,
 };
 
-// 2. Koneksi ke broker
 const client = mqtt.connect(brokerUrl, options);
 
-// 3. Daftar topik
+// Topik
 const topics = {
   data: 'livestock/data',
   sensor: 'livestock/sensor/data',
-  config: 'livestock/device/+/request-config',
-  pumpStatus: 'livestock/pump/status'
+  pumpStatus: 'livestock/pump/status',
 };
 
-// 4. Koneksi berhasil
+// Anti-spam notifikasi cache
+const notificationCache = new Map(); // key: type+msg, value: timestamp
+
+// Fungsi anti-spam
+function shouldSendNotification(type, message) {
+  const key = `${type}:${message}`;
+  const now = Date.now();
+  const lastSent = notificationCache.get(key);
+
+  if (!lastSent || now - lastSent > 10 * 60 * 1000) {
+    notificationCache.set(key, now);
+    return true;
+  }
+  return false;
+}
+
+// Koneksi MQTT
 client.on('connect', () => {
   console.log(`✅ MQTT Connected (Client ID: ${options.clientId})`);
   client.subscribe(Object.values(topics), { qos: 1 }, (err) => {
-    if (err) {
-      console.error('❌ Subscribe error:', err);
-    } else {
-      console.log(`📡 Subscribed to: ${Object.values(topics).join(', ')}`);
-    }
+    if (err) console.error('❌ Subscribe error:', err);
+    else console.log(`📡 Subscribed to: ${Object.values(topics).join(', ')}`);
   });
 });
 
-// 5. Event lainnya
-client.on('error', (err) => {
-  console.error('‼️ MQTT Error:', err);
-});
-client.on('reconnect', () => {
-  console.log('♻️ Attempting MQTT reconnection...');
-});
-client.on('close', () => {
-  console.log('🔌 MQTT connection closed');
-});
-
-// 6. Message handler
 client.on('message', async (topic, payload) => {
   try {
     const data = safeParse(payload);
-    if (!data) {
-      console.warn(`⚠️ Invalid JSON on ${topic}: ${payload.toString()}`);
-      return;
-    }
+    if (!data) return;
 
     console.log(`📥 [${topic}] Received:`, data);
 
-    switch (true) {
-      case topic === topics.data:
-        await handleWaterData(data);
-        break;
-      case topic === topics.sensor:
-        await handleSensorData(data);
-        break;
-      case topic === topics.pumpStatus:
-        await handlePumpStatus(data);
-        break;
-      case topic.includes('request-config'):
-        console.log('⚙️ Config request received');
-        break;
-      default:
-        console.log('🌐 Unhandled topic:', topic);
-    }
+    if (topic === topics.data) await handleWaterData(data);
+    else if (topic === topics.sensor) await handleSensorData(data);
+    else if (topic === topics.pumpStatus) await handlePumpStatus(data);
   } catch (err) {
     console.error(`❌ Processing error [${topic}]:`, err.message);
   }
 });
 
-// 7. Helper
 function safeParse(payload) {
   try {
     return JSON.parse(payload.toString());
@@ -90,11 +72,9 @@ function safeParse(payload) {
   }
 }
 
-// 8. Handler fungsi
+// 💧 Level Air & Suhu dari livestock/data
 async function handleWaterData(data) {
-  if (!data.level || !data.status) {
-    throw new Error('Invalid water data structure');
-  }
+  if (!data.level || !data.status) throw new Error('Invalid water data');
 
   await Promise.all([
     axios.post('http://localhost:5000/api/water-level', {
@@ -108,19 +88,32 @@ async function handleWaterData(data) {
     })
   ]);
 
-  client.publish(topics.pumpStatus, JSON.stringify({
-    status: data.pump?.toLowerCase() === 'on' ? 'on' : 'off',
-    mode: 'auto',
-    timestamp: new Date().toISOString()
-  }), { qos: 1 });
+  if (data.level <= 20) {
+    const title = 'Level Air Rendah';
+    const message = 'Air melewati batas rendah. Pompa otomatis menyala. Harap mengisi air secepatnya.';
+    const type = 'air_rendah';
+
+    if (shouldSendNotification(type, message)) {
+      await sendNotification(title, message, type);
+    }
+  }
+
+  if (data.temperature > 35) {
+    const title = 'Suhu Terlalu Tinggi';
+    const message = 'Suhu lingkungan terlalu tinggi! Harap perhatikan pemberian minum untuk ternak.';
+    const type = 'suhu_tinggi';
+
+    if (shouldSendNotification(type, message)) {
+      await sendNotification(title, message, type);
+    }
+  }
 
   console.log('✅ Water data processed');
 }
 
+// 🌡️ Suhu & Kelembaban dari sensor
 async function handleSensorData(data) {
-  if (!data.temperature && !data.humidity) {
-    throw new Error('Invalid sensor data');
-  }
+  if (!data.temperature && !data.humidity) throw new Error('Invalid sensor data');
 
   await axios.post('http://localhost:5000/api/temperature', {
     device_id: 1,
@@ -129,13 +122,22 @@ async function handleSensorData(data) {
     recorded_at: new Date().toISOString()
   });
 
+  if (data.temperature > 25) {
+    const title = 'Suhu Terlalu Tinggi';
+    const message = 'Suhu lingkungan terlalu tinggi! Harap perhatikan pemberian minum untuk ternak.';
+    const type = 'suhu_tinggi';
+
+    if (shouldSendNotification(type, message)) {
+      await sendNotification(title, message, type);
+    }
+  }
+
   console.log('✅ Sensor data processed');
 }
 
+// ⚙️ Status Pompa
 async function handlePumpStatus(data) {
-  if (!data.status || !data.mode || !data.timestamp) {
-    throw new Error('Invalid pump status payload');
-  }
+  if (!data.status || !data.mode || !data.timestamp) throw new Error('Invalid pump status');
 
   await savePumpStatus({
     device_id: 1,
@@ -144,10 +146,34 @@ async function handlePumpStatus(data) {
     timestamp: data.timestamp
   });
 
+  if (data.mode === 'auto' && data.status === 'on') {
+    const title = 'Pompa Aktif (Mode Otomatis)';
+    const message = 'Air melewati batas rendah. Pompa otomatis menyala. Harap mengisi air secepatnya.';
+    const type = 'pompa_otomatis';
+
+    if (shouldSendNotification(type, message)) {
+      await sendNotification(title, message, type);
+    }
+  }
+
   console.log('✅ Pump status saved to database');
 }
 
-// 9. Shutdown
+// 🔔 Kirim notifikasi
+async function sendNotification(title, message, type) {
+  try {
+    await axios.post('http://localhost:5000/api/notifications', {
+      title,
+      message,
+      type
+    });
+    console.log(`✅ Notifikasi "${title}" dikirim`);
+  } catch (err) {
+    console.error(`❌ Gagal kirim notifikasi "${title}":`, err.message);
+  }
+}
+
+// 🛑 Handle Exit
 process.on('SIGINT', () => {
   client.end(() => {
     console.log('🛑 MQTT connection terminated');

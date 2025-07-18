@@ -14,7 +14,7 @@ const Notification = sequelize.define('Notification', {
     allowNull: false,
   },
   type: {
-    type: DataTypes.ENUM('suhu', 'level_air'),
+    type: DataTypes.ENUM('suhu_tinggi', 'air_rendah', 'pompa_otomatis', ),
     allowNull: false,
   },
   is_read: {

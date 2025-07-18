@@ -552,12 +552,12 @@ class ApiService {
 
   // notification
   static Future<List<NotificationItem>> getAllNotifications() async {
-    final token = await getToken(); // 
+    final token = await getToken(); //
     final response = await http.get(
       Uri.parse('$baseUrl/notifications'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token', // 
+        'Authorization': 'Bearer $token', //
       },
     );
 
@@ -688,6 +688,18 @@ class ApiService {
       body: jsonEncode({'status': status}),
     );
     return response.statusCode == 200;
+  }
+
+  Future<String> getLevelAirTerbaru() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/manual-pump/level-air-terakhir'),
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['level_air'] ?? 'N/A';
+    } else {
+      throw Exception('Gagal mengambil level air terbaru');
+    }
   }
 
   Future<bool> kirimKonfirmasi({

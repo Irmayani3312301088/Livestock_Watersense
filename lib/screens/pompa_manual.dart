@@ -12,6 +12,7 @@ class _PompaManualPageState extends State<PompaManualPage> {
   final MQTTService mqtt = MQTTService();
   bool isPompaOn = false;
   String levelAir = '...';
+  bool isLoadingLevel = false;
 
   final String batasAtas = '20cm';
   final String batasBawah = '100cm';
@@ -20,6 +21,7 @@ class _PompaManualPageState extends State<PompaManualPage> {
   void initState() {
     super.initState();
     _loadStatusPompa();
+    _loadWaterLevel();
   }
 
   void _loadStatusPompa() async {
@@ -67,6 +69,29 @@ class _PompaManualPageState extends State<PompaManualPage> {
         content: Text(success ? 'Konfirmasi berhasil' : 'Gagal konfirmasi'),
       ),
     );
+  }
+
+  void _loadWaterLevel() async {
+    setState(() {
+      isLoadingLevel = true;
+    });
+
+    try {
+      final data = await ApiService.getLatestWaterLevel();
+      setState(() {
+        levelAir =
+            '${data['level']} cm'; // Sesuaikan dengan struktur response API Anda
+      });
+    } catch (e) {
+      print('Gagal ambil level air: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal memuat level air terbaru')));
+    } finally {
+      setState(() {
+        isLoadingLevel = false;
+      });
+    }
   }
 
   @override
@@ -217,7 +242,7 @@ class _PompaManualPageState extends State<PompaManualPage> {
             // Data Monitoring - Tanpa Text Field
             buildDataTile(
               'Level Air Sekarang',
-              levelAir,
+              isLoadingLevel ? 'Memuat...' : levelAir,
               icon: Icons.water_drop,
               color: const Color(0xFFF4B740),
             ),

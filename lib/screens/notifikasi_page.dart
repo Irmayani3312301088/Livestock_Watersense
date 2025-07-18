@@ -81,6 +81,12 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
 
     result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+    // DEBUG PRINT — Pindah ke sini
+    print(' DEBUG Notifikasi yang difilter:');
+    for (var item in result) {
+      print('🧾 Type: "${item.type}" | Title: ${item.title}');
+    }
+
     setState(() {
       _filteredNotifikasi = result;
     });
@@ -268,8 +274,11 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
     final screenSize = MediaQuery.of(context).size;
     final isTablet = screenSize.width > 600;
     final icon =
-        item.type == 'suhu' ? Icons.thermostat : Icons.water_drop_outlined;
-    final iconColor = item.type == 'suhu' ? Colors.green : Colors.blue;
+        item.type.contains('suhu')
+            ? Icons.thermostat
+            : Icons.water_drop_outlined;
+
+    final iconColor = item.type.contains('suhu') ? Colors.green : Colors.blue;
 
     return Center(
       child: ConstrainedBox(
@@ -302,7 +311,7 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
                         children: [
                           Expanded(
                             child: Text(
-                              "Notifikasi ${item.type == 'suhu' ? 'Suhu' : 'Level Air'}",
+                              "Notifikasi ${item.type.contains('suhu') ? 'Suhu' : 'Level Air'}",
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: isTablet ? 16 : 14,

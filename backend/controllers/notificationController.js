@@ -1,4 +1,5 @@
 const Notification = require('../models/notificationModel');
+const User = require('../models/userModel');
 
 exports.deleteAllNotifications = async (req, res) => {
   try {
@@ -24,13 +25,20 @@ exports.sendNotification = async (req, res) => {
   const { title, message, type } = req.body;
 
   try {
-    await Notification.create({ title, message, type });
+    await Notification.create({
+      title,
+      message,
+      type,
+      is_read: false 
+    });
+
     res.status(201).json({ message: 'Notifikasi dikirim.' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Gagal mengirim notifikasi.' });
   }
 };
+
 
 exports.getAllNotifications = async (req, res) => {
   try {
@@ -40,6 +48,6 @@ exports.getAllNotifications = async (req, res) => {
     res.status(200).json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Gagal Mengambil Notifikasi.' });
+    res.status(500).json({ message: 'Gagal ambil notifikasi.' });
   }
 };

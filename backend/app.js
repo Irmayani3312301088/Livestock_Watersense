@@ -31,7 +31,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/profile', profileRoutes);
 app.post('/api/activate-user', userController.activateUser);
 app.use('/api/temperature', temperatureRoutes);
-app.use('/api/water-level', waterLevelRoutes);         // ⬅️ ini penting
+app.use('/api/water-level', waterLevelRoutes);       
 app.use('/api/pump', pumpRoutes);
 app.use('/api/water-usage', waterUsageRoutes);
 app.use('/api/batas-air', batasAirRoutes);
