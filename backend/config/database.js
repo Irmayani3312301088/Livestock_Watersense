@@ -1,44 +1,53 @@
 const { Sequelize, DataTypes } = require('sequelize');
-require('dotenv').config({
-  path: process.env.NODE_ENV === 'production' ? '.env' : '.env.local',
-});
+require('dotenv').config();
+
+// Konfigurasi dasar
+const dbConfig = {
+  username: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  dialect: 'mysql',
+  logging: false, // Sebaiknya matikan logging SQL di produksi
+  pool: { max: 5, min: 0, acquire: 30000, idle: 10000 }
+};
+
+// Tambahkan opsi SSL HANYA untuk lingkungan produksi (di Railway)
+if (process.env.NODE_ENV === 'production') {
+  dbConfig.dialectOptions = {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false // Opsi ini penting untuk Railway
+    }
+  };
+}
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'livestock_db',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || '',
-  {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
-    dialect: 'mysql',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
-    pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
-    define: { timestamps: true, underscored: false, freezeTableName: true },
-    dialectOptions: { charset: 'utf8mb4', multipleStatements: true },
-    retry: {
-      match: [
-        /ETIMEDOUT/, /EHOSTUNREACH/, /ECONNRESET/, /ECONNREFUSED/,
-        /ESOCKETTIMEDOUT/, /EPIPE/, /EAI_AGAIN/, /ER_CON_COUNT_ERROR/
-      ],
-      max: 3
-    }
-  }
+  dbConfig.database,
+  dbConfig.username,
+  dbConfig.password,
+  dbConfig
 );
+
+// Model import (jika ada di sini)
+const OtpToken = require('../models/OtpToken')(sequelize, DataTypes);
 
 async function testConnection() {
   try {
     await sequelize.authenticate();
-    console.log('✅ Koneksi database berhasil.');
+    console.log('✅ Koneksi database berhasil dibuat.');
     return true;
   } catch (error) {
     console.error('❌ Tidak dapat tersambung ke database:', error.message);
+    // Tampilkan error yang lebih detail untuk debugging
+    console.error('Detail Error:', error);
     return false;
   }
 }
 
-// ✅ Ekspor sequelize dan DataTypes (tanpa OtpToken)
 module.exports = {
   sequelize,
-  DataTypes,
-  testConnection
+  testConnection,
+  OtpToken
 };
