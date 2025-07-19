@@ -1,45 +1,75 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# --------------------------------------
+# FLUTTER & DART
+# --------------------------------------
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
+**/doc/api/
+**/ios/Flutter/.last_build_id
 
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
+# Android build
+/android/.gradle/
+/android/.idea/
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
+
+# iOS build
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/App.framework
+/ios/Flutter/Flutter.framework
+/ios/build/
+
+# Obfuscation & Symbolication
+app.*.map.json
+app.*.symbols
+
+# Flutter generated
+.melos_tool/
+generated_plugin_registrant.dart
+
+# --------------------------------------
+# FIREBASE
+# --------------------------------------
+firebase-debug.log
+.firebaserc
+
+# --------------------------------------
+# NODE.JS / BACKEND EXPRESS (in /backend)
+/backend/node_modules/
+/backend/.env
+/backend/.env.local
+/backend/.DS_Store
+/backend/package-lock.json
+/backend/npm-debug.log
+
+# --------------------------------------
+# IDEs & EDITORS
+# --------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+
+# --------------------------------------
+# MISC
+# --------------------------------------
+*.log
+*.tmp
+*.temp
+*.class
+*.pyc
+*.bak
+*.old
+.DS_Store
+*.orig
+migrate_working_dir/

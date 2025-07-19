@@ -1,5 +1,7 @@
 const { Sequelize, DataTypes } = require('sequelize');
-require('dotenv').config();
+require('dotenv').config({
+  path: process.env.NODE_ENV === 'production' ? '.env' : '.env.local',
+});
 
 const sequelize = new Sequelize(
   process.env.DB_NAME || 'livestock_db',
