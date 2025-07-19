@@ -161,6 +161,13 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _refreshData() async {
+    setState(() {
+      _pumpStatusFuture = ApiService.getLatestPumpStatus();
+      _loadInitialPumpMode();
+    });
+  }
+
   DeviceType _getDeviceType(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     if (screenWidth < 360) return DeviceType.small;
@@ -323,114 +330,169 @@ class _DashboardPageState extends State<DashboardPage> {
             ? 22
             : (deviceType == DeviceType.medium ? 26 : 30);
 
-    return SingleChildScrollView(
-      padding: _getResponsivePadding(deviceType),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header dengan logo dan profile
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Logo dengan ukuran lebih besar dan stabil
-              Container(
-                width: logoSize,
-                height: logoSize,
-                decoration: const BoxDecoration(shape: BoxShape.circle),
-                clipBehavior: Clip.antiAlias,
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  child: Image.asset('assets/logo.png'),
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: _getResponsivePadding(deviceType),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header dengan logo dan profile
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Logo dengan ukuran lebih besar dan stabil
+                Container(
+                  width: logoSize,
+                  height: logoSize,
+                  decoration: const BoxDecoration(shape: BoxShape.circle),
+                  clipBehavior: Clip.antiAlias,
+                  child: FittedBox(
+                    fit: BoxFit.cover,
+                    child: Image.asset('assets/logo.png'),
+                  ),
                 ),
-              ),
 
-              // photo profile
-              FutureBuilder<Map<String, dynamic>>(
-                future: ApiService.getProfile(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                // photo profile
+                FutureBuilder<Map<String, dynamic>>(
+                  future: ApiService.getProfile(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return CircleAvatar(
+                        radius: avatarSize,
+                        backgroundColor: Colors.grey[300],
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      );
+                    }
+
+                    if (snapshot.hasData &&
+                        snapshot.data!['success'] == true &&
+                        snapshot.data!['data']['profile_image'] != null) {
+                      final imageUrl =
+                          'http://10.0.2.2:5000/uploads/profiles/${snapshot.data!['data']['profile_image']}';
+                      return CircleAvatar(
+                        radius: avatarSize,
+                        backgroundImage: NetworkImage(imageUrl),
+                      );
+                    }
+
                     return CircleAvatar(
                       radius: avatarSize,
-                      backgroundColor: Colors.grey[300],
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      backgroundColor: Colors.grey,
+                      child: Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: avatarSize * 0.8,
                       ),
                     );
-                  }
+                  },
+                ),
+              ],
+            ),
 
-                  if (snapshot.hasData &&
-                      snapshot.data!['success'] == true &&
-                      snapshot.data!['data']['profile_image'] != null) {
-                    final imageUrl =
-                        'http://10.0.2.2:5000/uploads/profiles/${snapshot.data!['data']['profile_image']}';
-                    return CircleAvatar(
-                      radius: avatarSize,
-                      backgroundImage: NetworkImage(imageUrl),
-                    );
-                  }
+            SizedBox(height: deviceType == DeviceType.small ? 12 : 16),
 
-                  return CircleAvatar(
-                    radius: avatarSize,
-                    backgroundColor: Colors.grey,
-                    child: Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: avatarSize * 0.8,
+            // Greeting
+            FutureBuilder<Map<String, dynamic>>(
+              future: ApiService.getProfile(),
+              builder: (context, snapshot) {
+                String name = "Pengguna";
+                if (snapshot.connectionState == ConnectionState.done &&
+                    snapshot.hasData &&
+                    snapshot.data != null &&
+                    snapshot.data!['success'] == true) {
+                  name = snapshot.data!['data']['name'];
+                }
+                return Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        "Halo $name",
+                        style: TextStyle(
+                          fontSize: _getResponsiveFontSize(
+                            deviceType,
+                            TextSizeType.title,
+                          ),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.waving_hand,
+                      color: Colors.amber,
+                      size:
+                          _getResponsiveFontSize(
+                            deviceType,
+                            TextSizeType.title,
+                          ) +
+                          4,
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            SizedBox(height: deviceType == DeviceType.small ? 12 : 16),
+
+            // Temperature Card
+            FutureBuilder<Map<String, dynamic>>(
+              future: ApiService.getLatestTemperature(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Container(
+                    padding: EdgeInsets.all(
+                      deviceType == DeviceType.small ? 12 : 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Center(child: CircularProgressIndicator()),
                   );
-                },
-              ),
-            ],
-          ),
+                }
 
-          SizedBox(height: deviceType == DeviceType.small ? 12 : 16),
-
-          // Greeting
-          FutureBuilder<Map<String, dynamic>>(
-            future: ApiService.getProfile(),
-            builder: (context, snapshot) {
-              String name = "Pengguna";
-              if (snapshot.connectionState == ConnectionState.done &&
-                  snapshot.hasData &&
-                  snapshot.data != null &&
-                  snapshot.data!['success'] == true) {
-                name = snapshot.data!['data']['name'];
-              }
-              return Row(
-                children: [
-                  Flexible(
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return Container(
+                    padding: EdgeInsets.all(
+                      deviceType == DeviceType.small ? 12 : 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red[100],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Text(
-                      "Halo $name",
+                      "Gagal memuat data suhu",
                       style: TextStyle(
                         fontSize: _getResponsiveFontSize(
                           deviceType,
-                          TextSizeType.title,
+                          TextSizeType.body,
                         ),
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.waving_hand,
-                    color: Colors.amber,
-                    size:
-                        _getResponsiveFontSize(deviceType, TextSizeType.title) +
-                        4,
-                  ),
-                ],
-              );
-            },
-          ),
+                  );
+                }
 
-          SizedBox(height: deviceType == DeviceType.small ? 12 : 16),
+                final suhu =
+                    snapshot.data!['temperature']?.toStringAsFixed(1) ?? '-';
+                final status = snapshot.data!['status'] ?? '-';
+                final note = snapshot.data!['note'] ?? '-';
 
-          // Temperature Card
-          FutureBuilder<Map<String, dynamic>>(
-            future: ApiService.getLatestTemperature(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+                Color backgroundColor;
+                if (status == 'Panas') {
+                  backgroundColor = Colors.red[100]!;
+                } else if (status == 'Dingin') {
+                  backgroundColor = Colors.deepPurple[100]!;
+                } else {
+                  backgroundColor = Colors.blue[50]!;
+                }
+
                 return Container(
                   padding: EdgeInsets.all(
                     deviceType == DeviceType.small ? 12 : 16,
@@ -439,420 +501,376 @@ class _DashboardPageState extends State<DashboardPage> {
                     color: Colors.blue[50],
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Center(child: CircularProgressIndicator()),
+                  child:
+                      isTablet
+                          ? Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Suhu sekitar kandang",
+                                      style: TextStyle(
+                                        fontSize: _getResponsiveFontSize(
+                                          deviceType,
+                                          TextSizeType.subtitle,
+                                        ),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      note,
+                                      style: TextStyle(
+                                        fontSize: _getResponsiveFontSize(
+                                          deviceType,
+                                          TextSizeType.body,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 16,
+                                  horizontal: 20,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  "$suhu°C",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: _getResponsiveFontSize(
+                                      deviceType,
+                                      TextSizeType.title,
+                                    ),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                          : Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Suhu sekitar kandang",
+                                      style: TextStyle(
+                                        fontSize: _getResponsiveFontSize(
+                                          deviceType,
+                                          TextSizeType.subtitle,
+                                        ),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      note,
+                                      style: TextStyle(
+                                        fontSize: _getResponsiveFontSize(
+                                          deviceType,
+                                          TextSizeType.body,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 14,
+                                  horizontal: 18,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  "$suhu°C",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: _getResponsiveFontSize(
+                                      deviceType,
+                                      TextSizeType.subtitle,
+                                    ),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                 );
-              }
+              },
+            ),
 
-              if (snapshot.hasError || !snapshot.hasData) {
-                return Container(
-                  padding: EdgeInsets.all(
-                    deviceType == DeviceType.small ? 12 : 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.red[100],
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    "Gagal memuat data suhu",
-                    style: TextStyle(
-                      fontSize: _getResponsiveFontSize(
-                        deviceType,
-                        TextSizeType.body,
-                      ),
+            SizedBox(height: deviceType == DeviceType.small ? 16 : 24),
+
+            // Menu Utama
+            Text(
+              "Menu Utama",
+              style: TextStyle(
+                fontSize: _getResponsiveFontSize(
+                  deviceType,
+                  TextSizeType.subtitle,
+                ),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            SizedBox(height: deviceType == DeviceType.small ? 8 : 12),
+
+            // Menu items - Grid layout untuk tablet
+            isTablet
+                ? GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 3.5,
+                  children: [
+                    buildMenuItem(
+                      context,
+                      deviceType: deviceType,
+                      icon: Icons.manage_accounts,
+                      title: "Manajemen Pengguna",
+                      color: const Color.fromARGB(255, 2, 50, 88),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const UserListPage(),
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                );
-              }
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: ApiService.getLatestWaterLevel(),
+                      builder: (context, snapshot) {
+                        String levelStatus = 'Memuat...';
+                        if (snapshot.connectionState == ConnectionState.done &&
+                            snapshot.hasData &&
+                            snapshot.data != null) {
+                          levelStatus = snapshot.data!['status'] ?? '-';
+                        }
+                        return buildMenuItem(
+                          context,
+                          deviceType: deviceType,
+                          icon: Icons.water_drop,
+                          title: "Level Air",
+                          color: Colors.blue,
+                          status: levelStatus,
+                        );
+                      },
+                    ),
+                    buildMenuItem(
+                      context,
+                      deviceType: deviceType,
+                      icon: Icons.settings,
+                      title: "Kustom Batas Air",
+                      color: Colors.teal,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => KustomBatasAirPage(deviceId: 1),
+                          ),
+                        );
+                      },
+                    ),
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: _pumpStatusFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.done &&
+                            snapshot.hasData &&
+                            snapshot.data != null) {
+                          isAutoMode = snapshot.data!['mode'] == 'auto';
+                        }
 
-              final suhu =
-                  snapshot.data!['temperature']?.toStringAsFixed(1) ?? '-';
-              final status = snapshot.data!['status'] ?? '-';
-              final note = snapshot.data!['note'] ?? '-';
+                        return buildPumpModeControl(
+                          context,
+                          deviceType: deviceType,
+                          isAutoMode: isAutoMode ?? true,
+                          onChanged: (bool newMode) async {
+                            try {
+                              String modeStr = newMode ? 'auto' : 'manual';
+                              await ApiService.setPumpMode(modeStr);
 
-              Color backgroundColor;
-              if (status == 'Panas') {
-                backgroundColor = Colors.red[100]!;
-              } else if (status == 'Dingin') {
-                backgroundColor = Colors.deepPurple[100]!;
-              } else {
-                backgroundColor = Colors.blue[50]!;
-              }
+                              setState(() {
+                                isAutoMode = newMode;
+                                _pumpStatusFuture =
+                                    ApiService.getLatestPumpStatus();
+                              });
 
-              return Container(
-                padding: EdgeInsets.all(
-                  deviceType == DeviceType.small ? 12 : 16,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child:
-                    isTablet
-                        ? Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Suhu sekitar kandang",
-                                    style: TextStyle(
-                                      fontSize: _getResponsiveFontSize(
-                                        deviceType,
-                                        TextSizeType.subtitle,
-                                      ),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    note,
-                                    style: TextStyle(
-                                      fontSize: _getResponsiveFontSize(
-                                        deviceType,
-                                        TextSizeType.body,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                vertical: 16,
-                                horizontal: 20,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                "$suhu°C",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: _getResponsiveFontSize(
-                                    deviceType,
-                                    TextSizeType.title,
-                                  ),
-                                  fontWeight: FontWeight.bold,
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Mode pompa berhasil diubah'),
                                 ),
-                              ),
-                            ),
-                          ],
-                        )
-                        : Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Suhu sekitar kandang",
-                                    style: TextStyle(
-                                      fontSize: _getResponsiveFontSize(
-                                        deviceType,
-                                        TextSizeType.subtitle,
-                                      ),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    note,
-                                    style: TextStyle(
-                                      fontSize: _getResponsiveFontSize(
-                                        deviceType,
-                                        TextSizeType.body,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                vertical: 14,
-                                horizontal: 18,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                "$suhu°C",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: _getResponsiveFontSize(
-                                    deviceType,
-                                    TextSizeType.subtitle,
-                                  ),
-                                  fontWeight: FontWeight.bold,
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Gagal mengubah mode pompa'),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-              );
-            },
-          ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                )
+                : Column(
+                  children: [
+                    buildMenuItem(
+                      context,
+                      deviceType: deviceType,
+                      icon: Icons.manage_accounts,
+                      title: "Manajemen Pengguna",
+                      color: const Color.fromARGB(255, 2, 50, 88),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const UserListPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: ApiService.getLatestWaterLevel(),
+                      builder: (context, snapshot) {
+                        String levelStatus = 'Memuat...';
+                        if (snapshot.connectionState == ConnectionState.done &&
+                            snapshot.hasData &&
+                            snapshot.data != null) {
+                          levelStatus = snapshot.data!['status'] ?? '-';
+                        }
+                        return buildMenuItem(
+                          context,
+                          deviceType: deviceType,
+                          icon: Icons.water_drop,
+                          title: "Level Air",
+                          color: Colors.blue,
+                          status: levelStatus,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    buildMenuItem(
+                      context,
+                      deviceType: deviceType,
+                      icon: Icons.settings,
+                      title: "Kustom Batas Air",
+                      color: Colors.teal,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => KustomBatasAirPage(deviceId: 1),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    FutureBuilder<Map<String, dynamic>>(
+                      future: _pumpStatusFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.done &&
+                            snapshot.hasData &&
+                            snapshot.data != null) {
+                          isAutoMode = snapshot.data!['mode'] == 'auto';
+                        }
 
-          SizedBox(height: deviceType == DeviceType.small ? 16 : 24),
+                        return buildPumpModeControl(
+                          context,
+                          deviceType: deviceType,
+                          isAutoMode: isAutoMode ?? true,
+                          onChanged: (bool newMode) async {
+                            try {
+                              String modeStr = newMode ? 'auto' : 'manual';
+                              await ApiService.setPumpMode(modeStr);
 
-          // Menu Utama
-          Text(
-            "Menu Utama",
-            style: TextStyle(
-              fontSize: _getResponsiveFontSize(
-                deviceType,
-                TextSizeType.subtitle,
+                              setState(() {
+                                isAutoMode =
+                                    newMode; // ini yang bikin Switch berubah
+                                _pumpStatusFuture =
+                                    ApiService.getLatestPumpStatus();
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Mode pompa berhasil diubah'),
+                                ),
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Gagal mengubah mode pompa'),
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+            SizedBox(height: deviceType == DeviceType.small ? 16 : 24),
+
+            // Laporan Real-time
+            Text(
+              "Laporan Real-time",
+              style: TextStyle(
+                fontSize: _getResponsiveFontSize(
+                  deviceType,
+                  TextSizeType.subtitle,
+                ),
+                fontWeight: FontWeight.bold,
               ),
-              fontWeight: FontWeight.bold,
             ),
-          ),
 
-          SizedBox(height: deviceType == DeviceType.small ? 8 : 12),
+            SizedBox(height: deviceType == DeviceType.small ? 12 : 16),
 
-          // Menu items - Grid layout untuk tablet
-          isTablet
-              ? GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 3.5,
-                children: [
-                  buildMenuItem(
-                    context,
-                    deviceType: deviceType,
-                    icon: Icons.manage_accounts,
-                    title: "Manajemen Pengguna",
-                    color: const Color.fromARGB(255, 2, 50, 88),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const UserListPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: ApiService.getLatestWaterLevel(),
-                    builder: (context, snapshot) {
-                      String levelStatus = 'Memuat...';
-                      if (snapshot.connectionState == ConnectionState.done &&
-                          snapshot.hasData &&
-                          snapshot.data != null) {
-                        levelStatus = snapshot.data!['status'] ?? '-';
-                      }
-                      return buildMenuItem(
-                        context,
-                        deviceType: deviceType,
-                        icon: Icons.water_drop,
-                        title: "Level Air",
-                        color: Colors.blue,
-                        status: levelStatus,
-                      );
-                    },
-                  ),
-                  buildMenuItem(
-                    context,
-                    deviceType: deviceType,
-                    icon: Icons.settings,
-                    title: "Kustom Batas Air",
-                    color: Colors.teal,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => KustomBatasAirPage(deviceId: 1),
-                        ),
-                      );
-                    },
-                  ),
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: _pumpStatusFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.done &&
-                          snapshot.hasData &&
-                          snapshot.data != null) {
-                        isAutoMode = snapshot.data!['mode'] == 'auto';
-                      }
-
-                      return buildPumpModeControl(
-                        context,
-                        deviceType: deviceType,
-                        isAutoMode: isAutoMode ?? true,
-                        onChanged: (bool newMode) async {
-                          try {
-                            String modeStr = newMode ? 'auto' : 'manual';
-                            await ApiService.setPumpMode(modeStr);
-
-                            setState(() {
-                              isAutoMode = newMode;
-                              _pumpStatusFuture =
-                                  ApiService.getLatestPumpStatus();
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Mode pompa berhasil diubah'),
-                              ),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Gagal mengubah mode pompa'),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ],
-              )
-              : Column(
-                children: [
-                  buildMenuItem(
-                    context,
-                    deviceType: deviceType,
-                    icon: Icons.manage_accounts,
-                    title: "Manajemen Pengguna",
-                    color: const Color.fromARGB(255, 2, 50, 88),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const UserListPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: ApiService.getLatestWaterLevel(),
-                    builder: (context, snapshot) {
-                      String levelStatus = 'Memuat...';
-                      if (snapshot.connectionState == ConnectionState.done &&
-                          snapshot.hasData &&
-                          snapshot.data != null) {
-                        levelStatus = snapshot.data!['status'] ?? '-';
-                      }
-                      return buildMenuItem(
-                        context,
-                        deviceType: deviceType,
-                        icon: Icons.water_drop,
-                        title: "Level Air",
-                        color: Colors.blue,
-                        status: levelStatus,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  buildMenuItem(
-                    context,
-                    deviceType: deviceType,
-                    icon: Icons.settings,
-                    title: "Kustom Batas Air",
-                    color: Colors.teal,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => KustomBatasAirPage(deviceId: 1),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: _pumpStatusFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.done &&
-                          snapshot.hasData &&
-                          snapshot.data != null) {
-                        isAutoMode = snapshot.data!['mode'] == 'auto';
-                      }
-
-                      return buildPumpModeControl(
-                        context,
-                        deviceType: deviceType,
-                        isAutoMode: isAutoMode ?? true,
-                        onChanged: (bool newMode) async {
-                          try {
-                            String modeStr = newMode ? 'auto' : 'manual';
-                            await ApiService.setPumpMode(modeStr);
-
-                            setState(() {
-                              isAutoMode =
-                                  newMode; // ini yang bikin Switch berubah
-                              _pumpStatusFuture =
-                                  ApiService.getLatestPumpStatus();
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Mode pompa berhasil diubah'),
-                              ),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Gagal mengubah mode pompa'),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ],
-              ),
-
-          SizedBox(height: deviceType == DeviceType.small ? 16 : 24),
-
-          // Laporan Real-time
-          Text(
-            "Laporan Real-time",
-            style: TextStyle(
-              fontSize: _getResponsiveFontSize(
-                deviceType,
-                TextSizeType.subtitle,
-              ),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          SizedBox(height: deviceType == DeviceType.small ? 12 : 16),
-
-          // Real-time cards - Grid untuk tablet
-          isTablet
-              ? GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 2.5,
-                children: [
-                  _buildWaterUsageCard(deviceType),
-                  _buildPumpStatusCard(deviceType),
-                ],
-              )
-              : Column(
-                children: [
-                  _buildWaterUsageCard(deviceType),
-                  const SizedBox(height: 12),
-                  _buildPumpStatusCard(deviceType),
-                ],
-              ),
-        ],
+            // Real-time cards - Grid untuk tablet
+            isTablet
+                ? GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 2.5,
+                  children: [
+                    _buildWaterUsageCard(deviceType),
+                    _buildPumpStatusCard(deviceType),
+                  ],
+                )
+                : Column(
+                  children: [
+                    _buildWaterUsageCard(deviceType),
+                    const SizedBox(height: 12),
+                    _buildPumpStatusCard(deviceType),
+                  ],
+                ),
+          ],
+        ),
       ),
     );
   }

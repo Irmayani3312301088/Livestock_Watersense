@@ -23,22 +23,20 @@ const sequelize = new Sequelize(
   }
 );
 
-// Model import
-const OtpToken = require('../models/OtpToken')(sequelize, DataTypes);
-
 async function testConnection() {
   try {
     await sequelize.authenticate();
-    console.log(' Koneksi database berhasil dibuat.');
+    console.log('✅ Koneksi database berhasil.');
     return true;
   } catch (error) {
-    console.error(' Tidak dapat tersambung ke database:', error.message);
+    console.error('❌ Tidak dapat tersambung ke database:', error.message);
     return false;
   }
 }
 
+// ✅ Ekspor sequelize dan DataTypes (tanpa OtpToken)
 module.exports = {
   sequelize,
-  testConnection,
-  OtpToken
+  DataTypes,
+  testConnection
 };

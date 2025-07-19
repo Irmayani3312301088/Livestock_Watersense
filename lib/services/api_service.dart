@@ -540,15 +540,16 @@ class ApiService {
   }
 
   static Future<double> getTodayWaterUsage() async {
-    final response = await http.get(Uri.parse('$baseUrl/water-usage/today'));
+  final response = await http.get(Uri.parse('$baseUrl/water-usage/today'));
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      return (data['today_usage'] ?? 0).toDouble();
-    } else {
-      throw Exception('Gagal ambil data penggunaan air hari ini');
-    }
+  if (response.statusCode == 200) {
+    final data = json.decode(response.body);
+    return double.tryParse(data['today_usage'].toString()) ?? 0.0;
+  } else {
+    throw Exception('Gagal ambil data penggunaan air hari ini');
   }
+}
+
 
   // notification
   static Future<List<NotificationItem>> getAllNotifications() async {

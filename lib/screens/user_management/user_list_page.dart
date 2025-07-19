@@ -612,12 +612,30 @@ class _UserListPageState extends State<UserListPage> {
                                                         (
                                                           context,
                                                         ) => AlertDialog(
+                                                          backgroundColor:
+                                                              Colors.white,
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  16,
+                                                                ),
+                                                          ),
                                                           title: const Text(
                                                             'Konfirmasi Aktivasi',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.black,
+                                                            ),
                                                           ),
                                                           content: Text(
                                                             'Yakin ingin mengaktifkan ${user['name']}?',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors
+                                                                      .black87,
+                                                            ),
                                                           ),
+
                                                           actions: [
                                                             TextButton(
                                                               onPressed:

@@ -123,6 +123,7 @@ class _NotifikasiPageState extends State<NotifikasiPage> {
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
           ),

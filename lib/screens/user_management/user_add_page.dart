@@ -18,8 +18,8 @@ class _UserAddPageState extends State<UserAddPage> {
   final TextEditingController _passwordController = TextEditingController();
   File? _selectedImage;
   bool _isPasswordVisible = false;
-  String _selectedRole = 'User';
-  final List<String> _roles = ['User', 'Admin'];
+  String _selectedRole = 'Peternak';
+  final List<String> _roles = ['Peternak', 'Admin'];
 
   // Responsive breakpoints
   double get _screenWidth => MediaQuery.of(context).size.width;
@@ -178,6 +178,7 @@ class _UserAddPageState extends State<UserAddPage> {
 
   Future<void> _saveUser() async {
     if (_formKey.currentState!.validate()) {
+      // Tampilkan loading spinner
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -190,9 +191,6 @@ class _UserAddPageState extends State<UserAddPage> {
       );
 
       try {
-        // Simulate API call
-        await Future.delayed(const Duration(seconds: 2));
-
         final result = await ApiService.createUser(
           name: _nameController.text,
           username: _usernameController.text,
@@ -202,7 +200,11 @@ class _UserAddPageState extends State<UserAddPage> {
           profileImage: _selectedImage,
         );
 
+        // Tutup loading spinner
         Navigator.of(context).pop();
+
+        // Debug log
+        print("Response dari ApiService.createUser: $result");
 
         if (result['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -218,12 +220,14 @@ class _UserAddPageState extends State<UserAddPage> {
           );
           _showSuccessDialog();
         } else {
-          _showErrorDialog(
-            result['message']?.toString() ?? 'Gagal menambahkan pengguna.',
-          );
+          String errorMsg = 'Gagal menambahkan pengguna.';
+          if (result.containsKey('message')) {
+            errorMsg = result['message'].toString();
+          }
+          _showErrorDialog(errorMsg);
         }
       } catch (e) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(); // Tutup loading spinner
         _showErrorDialog('Terjadi kesalahan: ${e.toString()}');
       }
     }
