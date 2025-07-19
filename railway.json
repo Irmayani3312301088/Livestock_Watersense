@@ -1,0 +1,10 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "nixpacksConfigPath": "backend"
+  },
+  "deploy": {
+    "startCommand": "npm start",
+    "cwd": "backend"
+  }
+}
